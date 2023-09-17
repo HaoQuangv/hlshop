@@ -185,19 +185,4 @@ router.post('/signin', async (request, response) => {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 module.exports = router

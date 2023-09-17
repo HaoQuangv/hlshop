@@ -14,5 +14,8 @@ app.use(express.urlencoded({ extended: true }));
 //use method from file
 app.use('/account', accountRouter);
 
+app.get('/', function (request, response) {
+    response.send("Hello word, this is group 08")
+})
 app.listen(port, () => console.log(`Server is running on port ${port}`))
 
