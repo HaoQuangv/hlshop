@@ -23,14 +23,14 @@ jobs:
       uses: docker/login-action@v2
       with:
         registry: https://index.docker.io/v1/
-        username: ${{ secrets.AzureAppService_ContainerUsername_2af5777336664aa7a9b9baa7b5d02503 }}
-        password: ${{ secrets.AzureAppService_ContainerPassword_2df56f43109a49d3ba59d7a589a0c692 }}
+        username: ${{ secrets.AzureAppService_ContainerUsername_af9f27e5de1845189ec111aebb3de2d6 }}
+        password: ${{ secrets.AzureAppService_ContainerPassword_3d05449e7a8a4d86a88bc83df4605d5b }}
 
     - name: Build and push container image to registry
       uses: docker/build-push-action@v3
       with:
         push: true
-        tags: index.docker.io/${{ secrets.AzureAppService_ContainerUsername_2af5777336664aa7a9b9baa7b5d02503 }}/hlshop:${{ github.sha }}
+        tags: index.docker.io/${{ secrets.AzureAppService_ContainerUsername_af9f27e5de1845189ec111aebb3de2d6 }}/hlshop:${{ github.sha }}
         file: ./Dockerfile
 
   deploy:
@@ -47,5 +47,5 @@ jobs:
       with:
         app-name: 'hl-shop'
         slot-name: 'production'
-        publish-profile: ${{ secrets.AzureAppService_PublishProfile_2029e4d60287407492311dc618c6474c }}
-        images: 'index.docker.io/${{ secrets.AzureAppService_ContainerUsername_2af5777336664aa7a9b9baa7b5d02503 }}/hlshop:${{ github.sha }}'
+        publish-profile: ${{ secrets.AzureAppService_PublishProfile_55a6485c90634c7c8c4c58bb6e204773 }}
+        images: 'index.docker.io/${{ secrets.AzureAppService_ContainerUsername_af9f27e5de1845189ec111aebb3de2d6 }}/hlshop:${{ github.sha }}'
