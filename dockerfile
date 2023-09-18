@@ -12,6 +12,6 @@ RUN npm install
 
 # Sao chép tất cả các tệp từ thư mục nguồn vào thư mục làm việc
 COPY . .
-# Chạy ứng dụng
+# Chạy ứng dụng trên port 80
 CMD ["node", "index.js"]
 EXPOSE 80
