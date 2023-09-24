@@ -6,8 +6,10 @@ const app = express();
 
 //import file
 const accountRouter = require('./api/routes/account');
+
 const userRouter = require('./api/routes/user');
 const port = process.env.port;
+
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
