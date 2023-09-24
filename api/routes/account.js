@@ -22,7 +22,7 @@ router.post('/signup', async (request, response) => {
             response.status(400).json({
                 "errorCode": 'MSG0046',
                 "userLogin": email,
-                "userID": result.recordset[0].id
+                "id": result.recordset[0].id
             });
         } 
         else
@@ -55,7 +55,7 @@ router.post('/signup', async (request, response) => {
                                             .query(queryOtp);
             
             response.status(201).json({
-                'uuid': insertedAccountId,
+                'id': insertedAccountId,
                 'email': email,
                 'today': createdDate.toISOString(),
                 'expired': expired.toISOString(),
@@ -162,7 +162,7 @@ router.post('/signin', async (request, response) => {
 
             response.status(201).json({
                 "token": token,
-                "uuid": result.recordset[0].id,
+                "id": result.recordset[0].id,
                 "accountType": result.recordset[0].role
             })
 

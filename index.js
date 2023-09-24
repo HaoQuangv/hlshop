@@ -6,6 +6,7 @@ const app = express();
 
 //import file
 const accountRouter = require('./api/routes/account');
+const userRouter = require('./api/routes/user');
 const port = process.env.port;
 
 app.use(express.json());
@@ -13,7 +14,7 @@ app.use(express.urlencoded({ extended: true }));
 
 //use method from file
 app.use('/account', accountRouter);
-
+app.use('/user', userRouter);
 // app.get('/', function (request, response) {
 //     response.send("Hello word, this is group 08")
 // })
