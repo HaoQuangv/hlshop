@@ -7,7 +7,7 @@ async function checkRole(request, response, next) {
                                         .input('id', request.userData.uuid)
                                         .query(queryAccount);
 
-        if(accountResult.recordset.length === 1 && (accountResult.recordset[0].role === 0 || accountResult.recordset[0].role === 1)){
+        if(accountResult.recordset.length === 1 && accountResult.recordset[0].role === 0){
             next();
         }
         else{

@@ -5,7 +5,7 @@ const router = express.Router()
 
 const database = require("../../config");
 const checkAuth = require('../../middleware/check_auth');
-const checkRole = require('../../middleware/check_role');
+const checkRole = require('../../middleware/check_role_user');
 const firebase = require('../../firebase');
 
 
