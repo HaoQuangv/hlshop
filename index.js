@@ -10,7 +10,7 @@ const categoryRouter = require('./api/routes/category');
 const userRouter = require('./api/routes/user');
 const addressRouter = require('./api/routes/address');
 const productRouter = require('./api/routes/product');
-const port = process.env.port;
+const port = 80;
 
 
 app.use(express.json());
