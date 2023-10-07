@@ -225,28 +225,4 @@ router.get('/get-list', checkAuth, checkRole, async (request, response) => {
 })
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 module.exports = router
