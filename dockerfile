@@ -1,14 +1,17 @@
+# Sử dụng một hình ảnh Node.js chứa phiên bản bạn muốn
+FROM node:18-alpine
 
-FROM node:18-alpine AS builder
+# Thiết lập thư mục làm việc
 WORKDIR /app
+
+# Sao chép package.json và package-lock.json vào thư mục làm việc
+COPY package*.json ./
+
+# Cài đặt các phụ thuộc
+RUN npm install
+
+# Sao chép tất cả các tệp từ thư mục nguồn vào thư mục làm việc
 COPY . .
-RUN npm i --force
-RUN npm run build
-CMD ["npm", "start"]
-
-FROM nginx:1.21.0-alpine AS production
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=builder /app/build /usr/share/nginx/html
-EXPOSE 8080
-CMD ["nginx", "-g", "daemon off;"]
-
+# Chạy ứng dụng trên port 80
+CMD ["node", "index.js"]
+EXPOSE 80
