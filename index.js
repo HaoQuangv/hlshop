@@ -6,7 +6,7 @@ const app = express();
 
 //import file
 const accountRouter = require('./api/routes/account');
-const categoryRouter = require('./api/routes/category');
+// const categoryRouter = require('./api/routes/category');
 const userRouter = require('./api/routes/user');
 const addressRouter = require('./api/routes/address');
 const productRouter = require('./api/routes/product');
@@ -19,7 +19,7 @@ app.use(express.urlencoded({ extended: true }));
 //use method from file
 app.use('/api/hlshop/account', accountRouter);
 app.use('/api/hlshop/user', userRouter);
-app.use('/api/hlshop/category', categoryRouter);
+// app.use('/api/hlshop/category', categoryRouter);
 app.use('/api/hlshop/address', addressRouter);
 app.use('/api/hlshop/product', productRouter);
 // app.get('/', function (request, response) {
