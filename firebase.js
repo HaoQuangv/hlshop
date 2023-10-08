@@ -1,4 +1,4 @@
-const serviceAccount = require('../hlshop/firebase-admin-config.json')
+const serviceAccount = require('firebase-admin-config.json')
 const admin = require('firebase-admin');
 
 
