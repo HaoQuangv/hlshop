@@ -7,7 +7,7 @@ const database = require('../../config');
 const checkAuth = require('../../middleware/check_auth');
 const checkRoleAdmin = require('../../middleware/check_role_admin');
 const checkRole = require('../../middleware/check_role');
-const firebase = require('./firebase.js');
+const firebase = require('../../firebase.js');
 
 const storage = multer.memoryStorage();
 const upload = multer({storage: storage}).single('file');   
