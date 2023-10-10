@@ -5,8 +5,8 @@ const doc = {
     title: 'Hlshop',
     description: 'API Hlshop',
   },
-  host: 'localhost:3000',
-  schemes: ['http'],
+  host: 'hl-shop.azurewebsites.net',
+  schemes: ['https'],
 };
 
 const outputFile = './swagger-output.json';

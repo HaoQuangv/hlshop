@@ -5,10 +5,10 @@
     "description": "API Hlshop",
     "version": "1.0.0"
   },
-  "host": "localhost:3000",
+  "host": "hl-shop.azurewebsites.net",
   "basePath": "/",
   "schemes": [
-    "http"
+    "https"
   ],
   "paths": {
     "/api-docs": {
