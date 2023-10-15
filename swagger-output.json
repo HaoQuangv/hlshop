@@ -153,7 +153,7 @@
         }
       }
     },
-    "/api/hlshop/user/create-profile": {
+    "/api/hlshop/users/create-profile": {
       "post": {
         "description": "",
         "parameters": [
@@ -203,7 +203,7 @@
         }
       }
     },
-    "/api/hlshop/user/get-profile": {
+    "/api/hlshop/users/get-profile": {
       "get": {
         "description": "",
         "parameters": [
@@ -226,7 +226,7 @@
         }
       }
     },
-    "/api/hlshop/user/update-profile": {
+    "/api/hlshop/users/update-profile": {
       "put": {
         "description": "",
         "parameters": [
@@ -279,7 +279,7 @@
         }
       }
     },
-    "/api/hlshop/user/delete-profile": {
+    "/api/hlshop/users/delete-profile": {
       "delete": {
         "description": "",
         "parameters": [
