@@ -120,7 +120,7 @@
         }
       }
     },
-    "/api/hlshop/account/signin": {
+    "/api/hlshop/account/signin-email": {
       "post": {
         "description": "",
         "parameters": [
@@ -130,7 +130,7 @@
             "schema": {
               "type": "object",
               "properties": {
-                "email": {
+                "userLogin": {
                   "example": "any"
                 },
                 "password": {
@@ -817,7 +817,7 @@
         "description": "",
         "parameters": [
           {
-            "name": "idProduct",
+            "name": "ProductID",
             "in": "query",
             "type": "string"
           }
