@@ -302,7 +302,7 @@
         }
       }
     },
-    "/api/hlshop/category/create-category": {
+    "/api/hlshop/product-category/create-category": {
       "post": {
         "description": "",
         "parameters": [
@@ -340,7 +340,7 @@
         }
       }
     },
-    "/api/hlshop/category/update-category": {
+    "/api/hlshop/product-category/update-category": {
       "put": {
         "description": "",
         "parameters": [
@@ -378,7 +378,7 @@
         }
       }
     },
-    "/api/hlshop/category/delete-category": {
+    "/api/hlshop/product-category/delete-category": {
       "delete": {
         "description": "",
         "parameters": [
@@ -413,7 +413,7 @@
         }
       }
     },
-    "/api/hlshop/category/get-list": {
+    "/api/hlshop/product-category/get-list": {
       "get": {
         "description": "",
         "parameters": [
