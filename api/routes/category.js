@@ -155,30 +155,40 @@ router.delete('/delete-category', checkAuth, checkRoleAdmin, async (request, res
 
 router.get('/get-list', async (request, response) => {
     try{
-        var page= request.query.page;
-        var pageSize = request.query.pageSize;
+        var offset= request.query.offset;
+        var limit = request.query.limit;
 
 
         console.log(typeof(page));
         console.log(typeof(pageSize));
-        if (page == null || page < 1) {
-            page = 1;
+        if (offset == null || offset < 1) {
+            offset = 1;
         }
     
-        if (pageSize == null) {
-            pageSize = 10;
+        if (limit == null) {
+            limit = 10;
         }
 
-        page = (page - 1) * pageSize;
+        offset = (offset - 1) * limit;
         
         const queryCategory = 'SELECT * FROM Category ORDER BY name OFFSET @page ROWS FETCH NEXT @pageSize ROWS ONLY'
         const categoryResult = await database.request()
-                                            .input('page', parseInt(page))
-                                            .input('pageSize', parseInt(pageSize))
+                                            .input('page', parseInt(offset))
+                                            .input('pageSize', parseInt(limit))
                                             .query(queryCategory)
+        
+        var results = [];
+        for(var i = 0; i < categoryResult.recordset.length; i++){
+            var result = {
+                "productCategoryID":  categoryResult.recordset[i].id,
+                "productCategoryName": categoryResult.recordset[i].name,
+                "linkString": categoryResult.recordset[i].image
+            }
 
+            results.push(result);
+        }
         response.status(200).json({
-            "result": categoryResult.recordset
+            "result": results
         })
     }catch(error){
         console.log(error);

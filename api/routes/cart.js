@@ -95,6 +95,8 @@ router.get('/get-list-cart', checkAuth, checkRole, async(request, response) => {
 
         const queryAttribute2 = "SELECT * FROM Product_attribute2 WHERE id = @idAttribute2";
 
+        const queryMedia = "SELECT linkString FROM Media WHERE id_product = @idProduct AND isDefault = 1";
+
         var carts = [];
         for(var i = 0; i < cartResult.recordset.length; i++){
             var attributes = [];
@@ -135,6 +137,14 @@ router.get('/get-list-cart', checkAuth, checkRole, async(request, response) => {
                 attributes.push(attribute);
             }
 
+            console.log(attributes.length)
+            if(attributes.length === 0){
+                var mediaResult = await database.request()
+                                                .input('idProduct', cartResult.recordset[i].idProduct)
+                                                .query(queryMedia)
+
+                media = mediaResult.recordset[0].linkString;
+            }
             var cart = {
                 "cartID": cartResult.recordset[i].id,
                 "productID": cartResult.recordset[i].idProduct,

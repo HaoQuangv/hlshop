@@ -418,12 +418,12 @@
         "description": "",
         "parameters": [
           {
-            "name": "page",
+            "name": "offset",
             "in": "query",
             "type": "string"
           },
           {
-            "name": "pageSize",
+            "name": "limit",
             "in": "query",
             "type": "string"
           }
