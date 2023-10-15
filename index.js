@@ -20,7 +20,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 //use method from file
-app.use('/api/hlshop/account', accountRouter);
+app.use('/api/hlshop/auth', accountRouter);
 app.use('/api/hlshop/user', userRouter);
 app.use('/api/hlshop/product-category', categoryRouter);
 app.use('/api/hlshop/address', addressRouter);

@@ -21,7 +21,7 @@
         }
       }
     },
-    "/api/hlshop/account/signup": {
+    "/api/hlshop/auth/signup": {
       "post": {
         "description": "",
         "parameters": [
@@ -57,7 +57,7 @@
         }
       }
     },
-    "/api/hlshop/account/verify": {
+    "/api/hlshop/auth/verify": {
       "post": {
         "description": "",
         "parameters": [
@@ -90,7 +90,7 @@
         }
       }
     },
-    "/api/hlshop/account/resend-otp": {
+    "/api/hlshop/auth/resend-otp": {
       "post": {
         "description": "",
         "parameters": [
@@ -120,7 +120,7 @@
         }
       }
     },
-    "/api/hlshop/account/signin-email": {
+    "/api/hlshop/auth/signin-email": {
       "post": {
         "description": "",
         "parameters": [
