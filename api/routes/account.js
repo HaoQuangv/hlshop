@@ -162,7 +162,8 @@ router.post('/signin-email', async (request, response) => {
 
             response.status(201).json({
                 "token": token,
-                "id": result.recordset[0].id,
+                "userID": result.recordset[0].id,
+                "userLogin": email,
                 "accountType": result.recordset[0].role
             })
 
