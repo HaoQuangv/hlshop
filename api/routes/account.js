@@ -146,9 +146,9 @@ router.post('/resend-otp', async (request, response) => {
 
 })
 
-router.post('/signin', async (request, response) => {
+router.post('/signin-email', async (request, response) => {
     try{
-        const email = request.body.email;
+        const email = request.body.userLogin;
         const password = request.body.password;
 
         const query = 'SELECT * FROM Account WHERE email = @email AND password = @password AND enabled = 1' ;

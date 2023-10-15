@@ -295,7 +295,7 @@ router.post('/create-product', checkAuth, checkRole, async (request, response) =
 
 router.get('/get-detail', async (request, response) => {
     try {
-        const idProduct = request.query.idProduct;
+        const idProduct = request.query.ProductID;
 
         var medias = [];
         var skus = [];
