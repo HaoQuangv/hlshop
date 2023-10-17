@@ -330,25 +330,47 @@ router.get('/get-detail', async (request, response) => {
             media['linkString'] = resultMedia.recordset[x].linkString;
             media['title'] = resultMedia.recordset[x].title;
             media['description'] = resultMedia.recordset[x].description;
+            media['objectRefType'] = 0;//Set mặc định, chưa biết nó là gì
+            media['mediaType'] = 0;//Set mặc định, chưa biết nó là gì
+            media['objectRefID'] = "1";//Set mặc định, chưa biết nó là gì
 
             medias.push(media);
         }
-
+        
         for (var x = 0; x < resultProductSku.recordset.length; x++) {
-            var sku = {};
-            sku['skuID'] = resultProductSku.recordset[x].id;
-            sku['quantity'] = resultProductSku.recordset[x].quantity;
-            sku['price'] = resultProductSku.recordset[x].price;
-            sku['idAttribute1'] = resultProductSku.recordset[x].idAttribute1;
-            sku['idAttribute2'] = resultProductSku.recordset[x].idAttribute2;
+            var image = ""
+            if (resultProductSku.recordset[x].idAttribute1 === null){
+                var queryImage = "SELECT linkString FROM Media WHERE id_product = @idProduct AND isDefault = 1";
+                var imageResult = await database.request()
+                                                .input('idProduct', resultProductSku.recordset[x].idProduct)
+                                                .query(queryImage);
+                 
+                image = imageResult.recordset[0].linkString;                                
+            }else{
+                var queryAttribute1 = "SELECT * FROM Product_attribute1 WHERE id = @idAttribute1";
+                var resultAttribute1 = await database.request()
+                                                    .input('idAttribute1', resultProductSku.recordset[x].idAttribute1)
+                                                    .query(queryAttribute1);
 
+                image = resultAttribute1.recordset[0].image;
+            }
+            var sku = {};
+            sku['productSKUID'] = resultProductSku.recordset[x].id;
+            sku['linkString'] = image;
+            sku['price'] = resultProductSku.recordset[x].price;
+            sku['priceBefore'] = resultProductSku.recordset[x].priceBefore;
+            sku['productVersionID'] = "1";
 
             skus.push(sku);
         }
+
+        var contactFullName = resultUser.recordset[0].first_name + " " + resultUser.recordset[0].last_name
+
         response.status(200).json({
             "productID": resultProduct.recordset[0].id,
             "sellerID": resultProduct.recordset[0].id_User,
             "productName": resultProduct.recordset[0].name,
+            "productDescription": resultProduct.recordset[0].decription,
             "productNotes": resultProduct.recordset[0].notes,
             "productSlogan": resultProduct.recordset[0].slogan,
             "productMadeIn": resultProduct.recordset[0].madeIn,
@@ -360,10 +382,11 @@ router.get('/get-detail', async (request, response) => {
                 "linkString": resultCategory.recordset[0].image
             },
             "seller": {
-                "firstName": resultUser.recordset[0].first_name,
-                "lastName": resultUser.recordset[0].last_name,
-                "address": resultUser.recordset[0].address,
-                "image": resultUser.recordset[0].image
+                "sellerID": resultUser.recordset[0].id,
+                "businessName": "HLSHOP",
+                "contactFullName": contactFullName,
+                "userType": 0,
+                "linkString": resultUser.recordset[0].image
             },
             "productSKU": skus
         })
@@ -455,17 +478,20 @@ router.get('/get-list-best-seller', async (request, response) => {
                 media['linkString'] = resultMedia.recordset[x].linkString;
                 media['title'] = resultMedia.recordset[x].title;
                 media['description'] = resultMedia.recordset[x].description;
+                media['objectRefType'] = 0;
+                media['mediaType'] = 0;
+                media['objectRefID'] = "1";
 
                 medias.push(media);
             }
 
             for (var y = 0; y < resultProductSku.recordset.length; y++) {
                 var sku = {};
-                sku['skuID'] = resultProductSku.recordset[y].id;
-                sku['quantity'] = resultProductSku.recordset[y].quantity;
+                sku['productSKUID'] = resultProductSku.recordset[y].id;
+                sku['priceBefore'] = resultProductSku.recordset[y].priceBefore;
                 sku['price'] = resultProductSku.recordset[y].price;
-                sku['idAttribute1'] = resultProductSku.recordset[y].idAttribute1;
-                sku['idAttribute2'] = resultProductSku.recordset[y].idAttribute2;
+                // sku['idAttribute1'] = resultProductSku.recordset[y].idAttribute1;
+                // sku['idAttribute2'] = resultProductSku.recordset[y].idAttribute2;
 
                 skus.push(sku);
             }
@@ -475,15 +501,15 @@ router.get('/get-list-best-seller', async (request, response) => {
                 "productName": resultProduct.recordset[i].name,
                 "productDescription": resultProduct.recordset[i].decription,
                 "medias": medias,
-                "productSKU": skus
+                "productSKU": skus,
             }
 
             products.push(product);
         }
 
-
         response.status(200).json({
-            "result": products
+            "result": products,
+            "total": 10// Set mặc định vì chưa biết total này là gì
         })
     } catch (error) {
         console.log(error);
@@ -493,91 +519,91 @@ router.get('/get-list-best-seller', async (request, response) => {
     }
 })
 
-router.get("/get-list-by-category", async (request, response) => {
-    try {
-        var offset = request.query.offset;
-        var limit = request.query.limit;
+// router.get("/get-list-by-category", async (request, response) => {
+//     try {
+//         var offset = request.query.offset;
+//         var limit = request.query.limit;
 
 
-        if (offset == null || offset < 1) {
-            offset = 1;
-        }
+//         if (offset == null || offset < 1) {
+//             offset = 1;
+//         }
 
-        if (limit == null) {
-            limit = 10;
-        }
+//         if (limit == null) {
+//             limit = 10;
+//         }
 
-        offset = (offset - 1) * limit;
-        var idCategory = request.query.idCategory;
+//         offset = (offset - 1) * limit;
+//         var idCategory = request.query.idCategory;
 
-        const queryProduct = "SELECT * FROM Product WHERE id_Category = @idCategory ORDER BY name OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY"
-        const resultProduct = await database.request()
-            .input('offset', parseInt(offset))
-            .input('limit', parseInt(limit))
-            .input('idCategory', idCategory)
-            .query(queryProduct)
+//         const queryProduct = "SELECT * FROM Product WHERE id_Category = @idCategory ORDER BY name OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY"
+//         const resultProduct = await database.request()
+//             .input('offset', parseInt(offset))
+//             .input('limit', parseInt(limit))
+//             .input('idCategory', idCategory)
+//             .query(queryProduct)
 
-        var products = []
+//         var products = []
 
-        for (var i = 0; i < resultProduct.recordset.length; i++) {
-            var medias = [];
-            var skus = [];
+//         for (var i = 0; i < resultProduct.recordset.length; i++) {
+//             var medias = [];
+//             var skus = [];
 
-            var queryMedia = "SELECT * FROM Media WHERE id_product = @idProduct";
-            var resultMedia = await database.request()
-                .input('idProduct', resultProduct.recordset[0].id)
-                .query(queryMedia);
-
-
-            var queryProductSku = "SELECT* from Product_sku WHERE idProduct =  @idProduct"
-            var resultProductSku = await database.request()
-                .input('idProduct', resultProduct.recordset[0].id)
-                .query(queryProductSku)
+//             var queryMedia = "SELECT * FROM Media WHERE id_product = @idProduct";
+//             var resultMedia = await database.request()
+//                 .input('idProduct', resultProduct.recordset[0].id)
+//                 .query(queryMedia);
 
 
-            for (var x = 0; x < resultMedia.recordset.length; x++) {
-                var media = {};
-                media['mediaID'] = resultMedia.recordset[x].id;
-                media['linkString'] = resultMedia.recordset[x].linkString;
-                media['title'] = resultMedia.recordset[x].title;
-                media['description'] = resultMedia.recordset[x].description;
-
-                medias.push(media);
-            }
-
-            for (var y = 0; y < resultProductSku.recordset.length; y++) {
-                var sku = {};
-                sku['skuID'] = resultProductSku.recordset[y].id;
-                sku['quantity'] = resultProductSku.recordset[y].quantity;
-                sku['price'] = resultProductSku.recordset[y].price;
-                sku['idAttribute1'] = resultProductSku.recordset[y].idAttribute1;
-                sku['idAttribute2'] = resultProductSku.recordset[y].idAttribute2;
-
-                skus.push(sku);
-            }
-
-            var product = {
-                "productID": resultProduct.recordset[i].id,
-                "productName": resultProduct.recordset[i].name,
-                "productDescription": resultProduct.recordset[i].decription,
-                "medias": medias,
-                "productSKU": skus
-            }
-
-            products.push(product);
-        }
+//             var queryProductSku = "SELECT* from Product_sku WHERE idProduct =  @idProduct"
+//             var resultProductSku = await database.request()
+//                 .input('idProduct', resultProduct.recordset[0].id)
+//                 .query(queryProductSku)
 
 
-        response.status(200).json({
-            "result": products
-        })
-    } catch (error) {
-        console.log(error);
-        response.status(500).json({
-            "error": 'Internal Server Error'
-        })
-    }
-})
+//             for (var x = 0; x < resultMedia.recordset.length; x++) {
+//                 var media = {};
+//                 media['mediaID'] = resultMedia.recordset[x].id;
+//                 media['linkString'] = resultMedia.recordset[x].linkString;
+//                 media['title'] = resultMedia.recordset[x].title;
+//                 media['description'] = resultMedia.recordset[x].description;
+
+//                 medias.push(media);
+//             }
+
+//             for (var y = 0; y < resultProductSku.recordset.length; y++) {
+//                 var sku = {};
+//                 sku['skuID'] = resultProductSku.recordset[y].id;
+//                 sku['quantity'] = resultProductSku.recordset[y].quantity;
+//                 sku['price'] = resultProductSku.recordset[y].price;
+//                 sku['idAttribute1'] = resultProductSku.recordset[y].idAttribute1;
+//                 sku['idAttribute2'] = resultProductSku.recordset[y].idAttribute2;
+
+//                 skus.push(sku);
+//             }
+
+//             var product = {
+//                 "productID": resultProduct.recordset[i].id,
+//                 "productName": resultProduct.recordset[i].name,
+//                 "productDescription": resultProduct.recordset[i].decription,
+//                 "medias": medias,
+//                 "productSKU": skus
+//             }
+
+//             products.push(product);
+//         }
+
+
+//         response.status(200).json({
+//             "result": products
+//         })
+//     } catch (error) {
+//         console.log(error);
+//         response.status(500).json({
+//             "error": 'Internal Server Error'
+//         })
+//     }
+// })
 
 
 

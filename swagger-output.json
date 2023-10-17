@@ -438,6 +438,36 @@
         }
       }
     },
+    "/api/hlshop/product-category/detail": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "offset",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "productCategoryID",
+            "in": "query",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
     "/api/hlshop/address/add": {
       "post": {
         "description": "",
@@ -856,36 +886,6 @@
           },
           {
             "name": "limit",
-            "in": "query",
-            "type": "string"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "500": {
-            "description": "Internal Server Error"
-          }
-        }
-      }
-    },
-    "/api/hlshop/product/get-list-by-category": {
-      "get": {
-        "description": "",
-        "parameters": [
-          {
-            "name": "offset",
-            "in": "query",
-            "type": "string"
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "type": "string"
-          },
-          {
-            "name": "idCategory",
             "in": "query",
             "type": "string"
           }
