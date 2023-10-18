@@ -32,7 +32,7 @@ function sendOTP(email, otp) {
 }
 
 function getRandomInt() {
-  return Math.floor(Math.random() * 899999 + 100000);
+  return Math.floor(Math.random() * 8999 + 1000);
 }
 
 module.exports.sendOTP = sendOTP;

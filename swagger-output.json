@@ -21,7 +21,7 @@
         }
       }
     },
-    "/api/hlshop/auth/signup": {
+    "/api/hlshop/auth/signup-email": {
       "post": {
         "description": "",
         "parameters": [
@@ -31,10 +31,7 @@
             "schema": {
               "type": "object",
               "properties": {
-                "email": {
-                  "example": "any"
-                },
-                "phone": {
+                "userLogin": {
                   "example": "any"
                 },
                 "password": {
@@ -57,7 +54,7 @@
         }
       }
     },
-    "/api/hlshop/auth/verify": {
+    "/api/hlshop/auth/signup-phone": {
       "post": {
         "description": "",
         "parameters": [
@@ -67,6 +64,42 @@
             "schema": {
               "type": "object",
               "properties": {
+                "userLogin": {
+                  "example": "any"
+                },
+                "password": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/hlshop/auth/verify-otp": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "userID": {
+                  "example": "any"
+                },
                 "uuid": {
                   "example": "any"
                 },
@@ -90,7 +123,7 @@
         }
       }
     },
-    "/api/hlshop/auth/resend-otp": {
+    "/api/hlshop/auth/resend-otp-email": {
       "post": {
         "description": "",
         "parameters": [
@@ -100,7 +133,40 @@
             "schema": {
               "type": "object",
               "properties": {
-                "uuid": {
+                "userID": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/hlshop/auth/resend-otp-phone": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "userID": {
+                  "example": "any"
+                },
+                "phone": {
                   "example": "any"
                 }
               }
@@ -153,37 +219,20 @@
         }
       }
     },
-    "/api/hlshop/users/create-profile": {
+    "/api/hlshop/auth/signin-phone": {
       "post": {
         "description": "",
         "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "type": "string"
-          },
           {
             "name": "body",
             "in": "body",
             "schema": {
               "type": "object",
               "properties": {
-                "firstName": {
+                "userLogin": {
                   "example": "any"
                 },
-                "lastName": {
-                  "example": "any"
-                },
-                "gender": {
-                  "example": "any"
-                },
-                "phone": {
-                  "example": "any"
-                },
-                "address": {
-                  "example": "any"
-                },
-                "dateOfBirth": {
+                "password": {
                   "example": "any"
                 }
               }
@@ -194,8 +243,8 @@
           "201": {
             "description": "Created"
           },
-          "401": {
-            "description": "Unauthorized"
+          "400": {
+            "description": "Bad Request"
           },
           "500": {
             "description": "Internal Server Error"
@@ -226,8 +275,8 @@
         }
       }
     },
-    "/api/hlshop/users/update-profile": {
-      "put": {
+    "/api/hlshop/users/update-contact-name": {
+      "post": {
         "description": "",
         "parameters": [
           {
@@ -241,22 +290,7 @@
             "schema": {
               "type": "object",
               "properties": {
-                "firstName": {
-                  "example": "any"
-                },
-                "lastName": {
-                  "example": "any"
-                },
-                "gender": {
-                  "example": "any"
-                },
-                "phone": {
-                  "example": "any"
-                },
-                "address": {
-                  "example": "any"
-                },
-                "dateOfBirth": {
+                "contactFullName": {
                   "example": "any"
                 }
               }
@@ -264,9 +298,6 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "OK"
-          },
           "201": {
             "description": "Created"
           },
@@ -279,8 +310,8 @@
         }
       }
     },
-    "/api/hlshop/users/delete-profile": {
-      "delete": {
+    "/api/hlshop/users/update-cover": {
+      "post": {
         "description": "",
         "parameters": [
           {
@@ -290,8 +321,37 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "OK"
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/hlshop/users/update-avatar": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "description": "Bad Request"
           },
           "401": {
             "description": "Unauthorized"
