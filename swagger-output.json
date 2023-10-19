@@ -907,7 +907,7 @@
         "description": "",
         "parameters": [
           {
-            "name": "ProductID",
+            "name": "productID",
             "in": "query",
             "type": "string"
           }
