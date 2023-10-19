@@ -120,15 +120,47 @@ router.get('/get-profile', checkAuth, checkRole, async (request, response) => {
             .input("idAccount", request.userData.uuid)
             .query(queryUser)
 
-        const fullName = userResult.recordset[0].first_name + " " + userResult.recordset[0].last_name
+        const queryAccount = "SELECT * FROM Account WHERE id = @idAccount"
+        const resultAccount = await database.request()
+                                            .input('idAccount', request.userData.uuid)
+                                            .query(queryAccount)
+
+        const queryEmail = "SELECT id AS emailID, emailAddress, emailLabel, isDefault, isVerify FROM Email WHERE idUser = @idUser";
+        const resultEmail = await database.request()
+                                        .input('idUser', userResult.recordset[0].id)
+                                        .query(queryEmail)
+        
+        const queryPhone = "SELECT id AS phoneID, phoneNo, extendNumber, phoneLabel, phoneArea, countryArea, isDefault, isVerify FROM Phone WHERE idUser = @idUser";
+        const resultPhone = await database.request()
+                                        .input('idUser', userResult.recordset[0].id)
+                                        .query(queryPhone)
         response.status(200).json({
-            "id": userResult.recordset[0].id,
-            "contactFullName": fullName,
+            "userID": request.userData.uuid,
+            "userLoginID": userResult.recordset[0].id,
+            "contactFullName": userResult.recordset[0].contactFullName,
+            "slogan": userResult.recordset[0].slogan,
             "gender": userResult.recordset[0].gender,
-            "accountType": 0,
-            "accountStatus": 1,
-            "date": userResult.recordset[0].createdDate,
-            "link": userResult.recordset[0].image
+            "pID": userResult.recordset[0].pID,
+            "createdDate": userResult.recordset[0].createdDate,
+            "accountType": resultAccount.recordset[0].role,
+            "accountStatus": resultAccount.recordset[0].isVerify ,
+            "userType": resultAccount.recordset[0].role,
+            "emails": resultEmail.recordset,
+            "phones": resultPhone.recordset,
+            "urls": [
+                {
+                    "urlID": "1010a4e3-2b79-4cf6-9e7a-716cdacc464f",
+                    "urlString": "google.com",
+                    "isDefault": 0
+                },
+                {
+                    "urlID": "61441d2c-aa96-4790-b139-0eee81b8cf31",
+                    "urlString": "haha",
+                    "isDefault": 0
+                }
+            ],
+            "userAvatar": userResult.recordset[0].userAvatar,
+            "userCover": userResult.recordset[0].userCover
         })
     } catch (error) {
         console.log(error);
@@ -555,8 +587,8 @@ router.post('/profile/email-update', checkAuth, checkRole, async (request, respo
             if (isDefault === 1) {
                 const queryUser = 'SELECT id FROM [User] WHERE id_account = @idAccount';
                 const userResult = await database.request()
-                                                .input('idAccount', request.userData.uuid)
-                                                .query(queryUser);
+                    .input('idAccount', request.userData.uuid)
+                    .query(queryUser);
 
                 const queryExistEmailIsDefault = "SELECT * FROM Email WHERE idUser = @idUser AND isDefault = 1";
                 const resultExistEmailIsDefault = await database.request()
@@ -578,20 +610,20 @@ router.post('/profile/email-update', checkAuth, checkRole, async (request, respo
                     .input('isDefault', isDefault)
                     .query(queryUpdateEmail);
 
-            var otp = mail_util.getRandomInt();
-            mail_util.sendOTP(emailAddress, otp);
+                var otp = mail_util.getRandomInt();
+                mail_util.sendOTP(emailAddress, otp);
 
-            const createdDate = new Date();
-            const expiredDate = new Date(createdDate.getTime() + 60000);
+                const createdDate = new Date();
+                const expiredDate = new Date(createdDate.getTime() + 60000);
 
-            const queryOtp = 'INSERT INTO OtpEmail(value, createdDate, idEmail) OUTPUT inserted.id VALUES (@value, @createdDate, @idEmail)';
-            const otpResult = await database.request()
-                .input('value', otp)
-                .input('createdDate', createdDate)
-                .input('idEmail', emailID)
-                .query(queryOtp);
+                const queryOtp = 'INSERT INTO OtpEmail(value, createdDate, idEmail) OUTPUT inserted.id VALUES (@value, @createdDate, @idEmail)';
+                const otpResult = await database.request()
+                    .input('value', otp)
+                    .input('createdDate', createdDate)
+                    .input('idEmail', emailID)
+                    .query(queryOtp);
 
-            
+
                 response.status(200).json({
                     "status": 200,
                     "message": "Update Email Success",
@@ -867,8 +899,8 @@ router.post('/profile/phone-update', checkAuth, checkRole, async (request, respo
             if (isDefault === 1) {
                 const queryUser = 'SELECT id FROM [User] WHERE id_account = @idAccount';
                 const userResult = await database.request()
-                                                .input('idAccount', request.userData.uuid)
-                                                .query(queryUser);
+                    .input('idAccount', request.userData.uuid)
+                    .query(queryUser);
 
                 const queryExistPhoneIsDefault = "SELECT * FROM Phone WHERE idUser = @idUser AND isDefault = 1";
                 const resultExistPhoneIsDefault = await database.request()
@@ -890,19 +922,19 @@ router.post('/profile/phone-update', checkAuth, checkRole, async (request, respo
                     .input('isDefault', isDefault)
                     .query(queryUpdatePhone);
 
-            var otp = mail_util.getRandomInt();
+                var otp = mail_util.getRandomInt();
 
-            const createdDate = new Date();
-            const expiredDate = new Date(createdDate.getTime() + 60000);
+                const createdDate = new Date();
+                const expiredDate = new Date(createdDate.getTime() + 60000);
 
-            const queryOtp = 'INSERT INTO OtpPhone(value, createdDate, idPhone) OUTPUT inserted.id VALUES (@value, @createdDate, @idPhone)';
-            const otpResult = await database.request()
-                .input('value', otp)
-                .input('createdDate', createdDate)
-                .input('idPhone', phoneID)
-                .query(queryOtp);
+                const queryOtp = 'INSERT INTO OtpPhone(value, createdDate, idPhone) OUTPUT inserted.id VALUES (@value, @createdDate, @idPhone)';
+                const otpResult = await database.request()
+                    .input('value', otp)
+                    .input('createdDate', createdDate)
+                    .input('idPhone', phoneID)
+                    .query(queryOtp);
 
-            
+
                 response.status(200).json({
                     "status": 200,
                     "message": "Update Phone Success",
