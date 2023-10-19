@@ -3,12 +3,14 @@ const multer = require('multer');
 
 const router = express.Router()
 
+const mail_util = require('../../utils/mail');
 const database = require("../../config");
 const checkAuth = require('../../middleware/check_auth');
 const checkRole = require('../../middleware/check_role_user');
 const firebase = require('../../firebase');
 
-
+const jwt = require('jsonwebtoken');
+require('dotenv').config();
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage }).single('file');
@@ -136,7 +138,7 @@ router.get('/get-profile', checkAuth, checkRole, async (request, response) => {
     }
 })
 
-router.post('/update-contact-name', checkAuth, checkRole, async (request, response) => {
+router.post('/profile/update-contact-name', checkAuth, checkRole, async (request, response) => {
     try {
         const contactFullName = request.body.contactFullName;
         const query = "UPDATE [User] SET contactFullName = @contactFullName OUTPUT inserted.id, inserted.slogan, inserted.gender, inserted.pID, inserted.createdDate WHERE id_account = @idAccount"
@@ -186,7 +188,7 @@ router.post('/update-contact-name', checkAuth, checkRole, async (request, respon
     }
 })
 
-router.post('/update-cover', upload, checkAuth, checkRole, async (request, response) => {
+router.post('/profile/update-cover', upload, checkAuth, checkRole, async (request, response) => {
     try {
         if (!request.file) {
             response.status(400).json({
@@ -242,7 +244,7 @@ router.post('/update-cover', upload, checkAuth, checkRole, async (request, respo
     }
 })
 
-router.post('/update-avatar', upload, checkAuth, checkRole, async (request, response) => {
+router.post('/profile/update-avatar', upload, checkAuth, checkRole, async (request, response) => {
     try {
         if (!request.file) {
             response.status(400).json({
@@ -298,6 +300,637 @@ router.post('/update-avatar', upload, checkAuth, checkRole, async (request, resp
     }
 })
 
+router.post('/profile/email-add', checkAuth, checkRole, async (request, response) => {
+    try {
+        const emailAddress = request.body.emailAddress;
+        const emailLabel = request.body.emailLabel;
+        const isDefault = request.body.isDefault;
+
+        const queryUser = 'SELECT id FROM [User] WHERE id_account = @idAccount';
+        const userResult = await database.request()
+            .input('idAccount', request.userData.uuid)
+            .query(queryUser);
+
+        if (isDefault === 1) {
+            const queryEmailDefault = "SELECT * FROM Email WHERE idUser = @idUser AND isDefault = 1";
+            const resultEmailDefault = await database.request()
+                .input('idUser', userResult.recordset[0].id)
+                .query(queryEmailDefault)
+
+            if (resultEmailDefault.recordset.length !== 0) {
+                const updateEmailDefault = "UPDATE Email SET isDefault = 0 WHERE id = @idEmail"
+                const resultUpdateEmailDefault = await database.request()
+                    .input('idEmail', resultEmailDefault.recordset[0].id)
+                    .query(updateEmailDefault);
+            }
+            const createdDate = new Date();
+            const expired = new Date(createdDate.getTime() + 60000);
+
+            const queryEmail = "INSERT INTO Email(emailAddress, emailLabel, isDefault, isVerify, idUser) OUTPUT inserted.id VALUES (@emailAddress, @emailLabel, @isDefault, 0, @idUser)";
+            const resultEmail = await database.request()
+                .input('emailAddress', emailAddress)
+                .input('emailLabel', emailLabel)
+                .input('isDefault', isDefault)
+                .input('idUser', userResult.recordset[0].id)
+                .query(queryEmail);
+
+            var otp = mail_util.getRandomInt();
+            mail_util.sendOTP(emailAddress, otp);
+
+            const queryOtp = 'INSERT INTO OtpEmail(value, createdDate, idEmail) OUTPUT inserted.id VALUES (@value, @createdDate, @idEmail)';
+            const otpResult = await database.request()
+                .input('value', otp)
+                .input('createdDate', createdDate)
+                .input('idEmail', resultEmail.recordset[0].id)
+                .query(queryOtp);
+
+            response.status(200).json({
+                "status": 200,
+                "message": "Add Email Success",
+                "result": {
+                    "userID": request.userData.uuid,
+                    "uuid": otpResult.recordset[0].id,
+                    "emailID": resultEmail.recordset[0].id,
+                    "emailAddress": emailAddress,
+                    "today": createdDate,
+                    "expired": expired,
+                    'otp': otp.toString()
+                }
+            })
+        } else {
+            const createdDate = new Date();
+            const expired = new Date(createdDate.getTime() + 60000);
+
+            const queryEmail = "INSERT INTO Email(emailAddress, emailLabel, isDefault, isVerify, idUser) OUTPUT inserted.id VALUES (@emailAddress, @emailLabel, @isDefault, 0, @idUser)";
+            const resultEmail = await database.request()
+                .input('emailAddress', emailAddress)
+                .input('emailLabel', emailLabel)
+                .input('isDefault', isDefault)
+                .input('idUser', userResult.recordset[0].id)
+                .query(queryEmail);
+
+
+            var otp = mail_util.getRandomInt();
+            mail_util.sendOTP(emailAddress, otp);
+
+            const queryOtp = 'INSERT INTO OtpEmail(value, createdDate, idEmail) OUTPUT inserted.id VALUES (@value, @createdDate, @idEmail)';
+            const otpResult = await database.request()
+                .input('value', otp)
+                .input('createdDate', createdDate)
+                .input('idEmail', resultEmail.recordset[0].id)
+                .query(queryOtp);
+
+            response.status(200).json({
+                "status": 200,
+                "message": "Add Email Success",
+                "result": {
+                    "userID": request.userData.uuid,
+                    "uuid": otpResult.recordset[0].id,
+                    "emailID": resultEmail.recordset[0].id,
+                    "emailAddress": emailAddress,
+                    "today": createdDate,
+                    "expired": expired,
+                    'otp': otp.toString()
+                }
+            })
+        }
+    } catch (error) {
+        console.log(error);
+        response.status(500).json({
+            "error": 'Internal Server Error'
+        })
+    }
+})
+
+router.post('/profile/email-delete', checkAuth, checkRole, async (request, response) => {
+    try {
+        const emailID = request.body.emailID;
+
+        const queryEmail = "SELECT * FROM Email WHERE id = @emailID";
+        const resultEmail = await database.request()
+            .input('emailID', emailID)
+            .query(queryEmail);
+
+        if (resultEmail.recordset.length === 0) {
+            response.status(400).json({
+                "errorCode": "MSG0091",
+                "message": "Email is not existing"
+            })
+        }
+        else {
+            const queryDeleteEmail = "DELETE FROM Email WHERE id = @idEmail";
+            const resultQueryDeleteEmail = await database.request()
+                .input('idEmail', emailID)
+                .query(queryDeleteEmail);
+            response.status(200).json({
+                "status": 200,
+                "message": "Delete Email Success"
+            })
+        }
+    } catch (error) {
+        console.log(error);
+        response.status(500).json({
+            "error": 'Internal Server Error'
+        })
+    }
+})
+
+router.post('/profile/email-resend-otp', checkAuth, checkRole, async (request, response) => {
+    try {
+        const emailID = request.body.emailID;
+        const queryEmail = "SELECT * FROM Email WHERE id = @emailID";
+        const resultEmail = await database.request()
+            .input('emailID', emailID)
+            .query(queryEmail);
+
+        if (resultEmail.recordset.length !== 0) {
+            const mail = resultEmail.recordset[0].emailAddress;
+
+            var otp = mail_util.getRandomInt();
+            mail_util.sendOTP(mail, otp);
+
+            const createdDate = new Date();
+            const expiredDate = new Date(createdDate.getTime() + 60000);
+            const queryOtp = 'INSERT INTO OtpEmail(value, createdDate, idEmail) OUTPUT inserted.id VALUES (@value, @createdDate, @idEmail)';
+            const otpResult = await database.request()
+                .input('value', otp)
+                .input('createdDate', createdDate)
+                .input('idEmail', emailID)
+                .query(queryOtp);
+
+            response.status(201).json({
+                "status": 200,
+                "message": "Resend OTP Email Success",
+                "result": {
+                    "userID": request.userData.uuid,
+                    "uuid": otpResult.recordset[0].id,
+                    "emailID": emailID,
+                    "emailAddress": resultEmail.recordset[0].emailAddress,
+                    "today": createdDate,
+                    "expired": expiredDate
+                },
+                "otp": otp.toString()
+            })
+        }
+        else {
+            response.status(400).json({
+                "errorCode": "MSG0091",
+                "message": "Email is not existing"
+            });
+        }
+    } catch (error) {
+        console.log(error);
+        response.status(500).json({
+            "error": 'Internal Server Error'
+        })
+    }
+})
+
+router.post('/profile/email-verify', checkAuth, checkRole, async (request, response) => {
+    try {
+        const emailID = request.body.emailID;
+        const uuid = request.body.uuid;
+        const otp = request.body.otp;
+
+        const queryEmail = "SELECT * FROM Email WHERE id = @emailID";
+        const resultEmail = await database.request()
+            .input('emailID', emailID)
+            .query(queryEmail);
+
+        if (resultEmail.recordset.length !== 0) {
+            const query = 'SELECT * FROM OtpEmail WHERE idEmail = @idEmail AND createdDate = (SELECT MAX(createdDate) FROM OtpEmail ) AND id = @idOtpEmail'
+            const result = await database.request()
+                .input('idEmail', emailID)
+                .input('idOtpEmail', uuid)
+                .query(query);
+
+            const today = new Date();
+            const expired = today.getTime() - result.recordset[0].createdDate.getTime();
+
+            if (result.recordset[0].value === parseInt(otp) && expired < 60000) {
+                const queryAccount = 'UPDATE Email SET isVerify  = 1 OUTPUT inserted.emailAddress WHERE id = @idEmail'
+                const accountResult = await database.request()
+                    .input('idEmail', emailID)
+                    .query(queryAccount);
+
+                response.status(201).json({
+                    "userID": request.userData.uuid,
+                    "emailID": emailID,
+                    "emailAddress": accountResult.recordset[0].userLogin,
+                    "accountType": 1
+                })
+            }
+            else {
+                response.status(400).json({
+                    'message': 'Mã otp của bạn bị sai hoặc đã quá hạn!'
+                })
+            }
+        } else {
+            response.status(400).json({
+                "errorCode": "MSG0091",
+                "message": "Email is not existing"
+            })
+        }
+    } catch (error) {
+        console.log(error);
+        response.status(500).json({
+            "error": 'Internal Server Error'
+        })
+    }
+})
+
+router.post('/profile/email-update', checkAuth, checkRole, async (request, response) => {
+    try {
+        const emailID = request.body.emailID;
+        const emailAddress = request.body.emailAddress;
+        const emailLabel = request.body.emailLabel;
+        const isDefault = request.body.isDefault;
+
+        const queryEmail = "SELECT * FROM Email WHERE id = @emailID";
+        const resultEmail = await database.request()
+            .input('emailID', emailID)
+            .query(queryEmail);
+
+        if (resultEmail.recordset.length !== 0) {
+            if (isDefault === 1) {
+                const queryUser = 'SELECT id FROM [User] WHERE id_account = @idAccount';
+                const userResult = await database.request()
+                                                .input('idAccount', request.userData.uuid)
+                                                .query(queryUser);
+
+                const queryExistEmailIsDefault = "SELECT * FROM Email WHERE idUser = @idUser AND isDefault = 1";
+                const resultExistEmailIsDefault = await database.request()
+                    .input('idUser', userResult.recordset[0].id)
+                    .query(queryExistEmailIsDefault);
+
+                if (resultExistEmailIsDefault.recordset.length !== 0) {
+                    const queryUpdateIsDefault = "UPDATE Email SET isDefault = 0 WHERE id = @idEmail";
+                    const resultUpdateIsDefault = await database.request()
+                        .input('idEmail', resultExistEmailIsDefault.recordset[0].id)
+                        .query(queryUpdateIsDefault);
+                }
+
+                const queryUpdateEmail = "UPDATE Email SET isVerify = 0, emailAddress = @emailAddress, emailLabel = @emailLabel, isDefault = @isDefault WHERE id = @idEmail";
+                const resultUpdateEmail = await database.request()
+                    .input('idEmail', emailID)
+                    .input('emailAddress', emailAddress)
+                    .input('emailLabel', emailLabel)
+                    .input('isDefault', isDefault)
+                    .query(queryUpdateEmail);
+
+            var otp = mail_util.getRandomInt();
+            mail_util.sendOTP(emailAddress, otp);
+
+            const createdDate = new Date();
+            const expiredDate = new Date(createdDate.getTime() + 60000);
+
+            const queryOtp = 'INSERT INTO OtpEmail(value, createdDate, idEmail) OUTPUT inserted.id VALUES (@value, @createdDate, @idEmail)';
+            const otpResult = await database.request()
+                .input('value', otp)
+                .input('createdDate', createdDate)
+                .input('idEmail', emailID)
+                .query(queryOtp);
+
+            
+                response.status(200).json({
+                    "status": 200,
+                    "message": "Update Email Success",
+                    "result": {
+                        "emailID": emailID,
+                        "emailAddress": emailAddress,
+                        "isDefault": isDefault
+                    },
+                    "otp": otp.toString(),
+                    "uuid": otpResult.recordset[0].id
+                })
+            } else {
+                response.status(400).json({
+                    "errorCode": "MSG0091",
+                    "message": "Email is not existing"
+                })
+            }
+        }
+    } catch (error) {
+        console.log(error);
+        response.status(500).json({
+            "error": 'Internal Server Error'
+        })
+    }
+})
+
+router.post('/profile/phone-add', checkAuth, checkRole, async (request, response) => {
+    try {
+        const phoneNo = request.body.phoneNo;
+        const phoneLabel = request.body.phoneLabel;
+        const isDefault = request.body.isDefault;
+
+        const queryUser = 'SELECT id FROM [User] WHERE id_account = @idAccount';
+        const userResult = await database.request()
+            .input('idAccount', request.userData.uuid)
+            .query(queryUser);
+
+        if (isDefault === 1) {
+            const queryPhoneDefault = "SELECT * FROM Phone WHERE idUser = @idUser AND isDefault = 1";
+            const resultPhoneDefault = await database.request()
+                .input('idUser', userResult.recordset[0].id)
+                .query(queryPhoneDefault)
+
+            if (resultPhoneDefault.recordset.length !== 0) {
+                const updatePhoneDefault = "UPDATE Phone SET isDefault = 0 WHERE id = @idPhone"
+                const resultUpdatePhoneDefault = await database.request()
+                    .input('idPhone', resultPhoneDefault.recordset[0].id)
+                    .query(updatePhoneDefault);
+            }
+            const createdDate = new Date();
+            const expired = new Date(createdDate.getTime() + 60000);
+
+            const queryPhone = "INSERT INTO Phone(phoneNo, phoneLabel, isDefault, isVerify, idUser) OUTPUT inserted.id VALUES (@phoneNo, @phoneLabel, @isDefault, 0, @idUser)";
+            const resultPhone = await database.request()
+                .input('phoneNo', phoneNo)
+                .input('phoneLabel', phoneLabel)
+                .input('isDefault', isDefault)
+                .input('idUser', userResult.recordset[0].id)
+                .query(queryPhone);
+
+            var otp = mail_util.getRandomInt();
+
+            const queryOtp = 'INSERT INTO OtpPhone(value, createdDate, idPhone) OUTPUT inserted.id VALUES (@value, @createdDate, @idPhone)';
+            const otpResult = await database.request()
+                .input('value', otp)
+                .input('createdDate', createdDate)
+                .input('idPhone', resultPhone.recordset[0].id)
+                .query(queryOtp);
+
+            response.status(200).json({
+                "status": 200,
+                "message": "Add Phone Success",
+                "result": {
+                    "userID": request.userData.uuid,
+                    "uuid": otpResult.recordset[0].id,
+                    "phoneID": resultPhone.recordset[0].id,
+                    "phone": phoneNo,
+                    "today": createdDate,
+                    "expired": expired,
+                    'otp': otp.toString()
+                }
+            })
+        } else {
+            const createdDate = new Date();
+            const expired = new Date(createdDate.getTime() + 60000);
+
+            const queryPhone = "INSERT INTO Phone(phoneNo, phoneLabel, isDefault, isVerify, idUser) OUTPUT inserted.id VALUES (@phoneNo, @phoneLabel, @isDefault, 0, @idUser)";
+            const resultPhone = await database.request()
+                .input('phoneNo', phoneNo)
+                .input('phoneLabel', phoneLabel)
+                .input('isDefault', isDefault)
+                .input('idUser', userResult.recordset[0].id)
+                .query(queryPhone);
+
+            var otp = mail_util.getRandomInt();
+
+            const queryOtp = 'INSERT INTO OtpPhone(value, createdDate, idPhone) OUTPUT inserted.id VALUES (@value, @createdDate, @idPhone)';
+            const otpResult = await database.request()
+                .input('value', otp)
+                .input('createdDate', createdDate)
+                .input('idPhone', resultPhone.recordset[0].id)
+                .query(queryOtp);
+
+            response.status(200).json({
+                "status": 200,
+                "message": "Add Phone Success",
+                "result": {
+                    "userID": request.userData.uuid,
+                    "uuid": otpResult.recordset[0].id,
+                    "phoneID": resultPhone.recordset[0].id,
+                    "phone": phoneNo,
+                    "today": createdDate,
+                    "expired": expired,
+                    'otp': otp.toString()
+                }
+            })
+        }
+    } catch (error) {
+        console.log(error);
+        response.status(500).json({
+            "error": 'Internal Server Error'
+        })
+    }
+})
+
+router.post('/profile/phone-delete', checkAuth, checkRole, async (request, response) => {
+    try {
+        const phoneID = request.body.phoneID;
+
+        const queryPhone = "SELECT * FROM Phone WHERE id = @phoneID";
+        const resultPhone = await database.request()
+            .input('phoneID', phoneID)
+            .query(queryPhone);
+
+        if (resultPhone.recordset.length === 0) {
+            response.status(400).json({
+                "errorCode": "MSG0094",
+                "message": "Phone is not existing"
+            })
+        }
+        else {
+            const queryDeletePhone = "DELETE FROM Phone WHERE id = @phoneID";
+            const resultQueryDeletePhone = await database.request()
+                .input('phoneID', phoneID)
+                .query(queryDeletePhone);
+            response.status(200).json({
+                "status": 200,
+                "message": "Delete Phone Success"
+            })
+        }
+    } catch (error) {
+        console.log(error);
+        response.status(500).json({
+            "error": 'Internal Server Error'
+        })
+    }
+})
+
+router.post('/profile/phone-resend-otp', checkAuth, checkRole, async (request, response) => {
+    try {
+        const phoneID = request.body.phoneID;
+        const queryPhone = "SELECT * FROM Phone WHERE id = @phoneID";
+        const resultPhone = await database.request()
+            .input('phoneID', phoneID)
+            .query(queryPhone);
+
+        if (resultPhone.recordset.length !== 0) {
+            var otp = mail_util.getRandomInt();
+
+            const createdDate = new Date();
+            const expiredDate = new Date(createdDate.getTime() + 60000);
+            const queryOtp = 'INSERT INTO OtpPhone(value, createdDate, idPhone) OUTPUT inserted.id VALUES (@value, @createdDate, @idPhone)';
+            const otpResult = await database.request()
+                .input('value', otp)
+                .input('createdDate', createdDate)
+                .input('idPhone', phoneID)
+                .query(queryOtp);
+
+            response.status(201).json({
+                "status": 200,
+                "message": "Resend OTP Phone Success",
+                "result": {
+                    "userID": request.userData.uuid,
+                    "uuid": otpResult.recordset[0].id,
+                    "phoneID": phoneID,
+                    "phone": resultPhone.recordset[0].phoneNo,
+                    "today": createdDate,
+                    "expired": expiredDate
+                },
+                "otp": otp.toString()
+            })
+        }
+        else {
+            response.status(400).json({
+                "errorCode": "MSG0094",
+                "message": "Phone is not existing"
+            });
+        }
+    } catch (error) {
+        console.log(error);
+        response.status(500).json({
+            "error": 'Internal Server Error'
+        })
+    }
+})
+
+router.post('/profile/phone-verify', checkAuth, checkRole, async (request, response) => {
+    try {
+        const phoneID = request.body.phoneID;
+        const uuid = request.body.uuid;
+        const otp = request.body.otp;
+
+        const queryPhone = "SELECT * FROM Phone WHERE id = @phoneID";
+        const resultPhone = await database.request()
+            .input('phoneID', phoneID)
+            .query(queryPhone);
+
+        if (resultPhone.recordset.length !== 0) {
+            const query = 'SELECT * FROM OtpPhone WHERE idPhone = @idPhone AND createdDate = (SELECT MAX(createdDate) FROM OtpPhone ) AND id = @idOtpPhone'
+            const result = await database.request()
+                .input('idPhone', phoneID)
+                .input('idOtpPhone', uuid)
+                .query(query);
+
+            const today = new Date();
+            const expired = today.getTime() - result.recordset[0].createdDate.getTime();
+
+            if (result.recordset[0].value === parseInt(otp) && expired < 60000) {
+                const queryAccount = 'UPDATE Phone SET isVerify  = 1 OUTPUT inserted.phoneNo WHERE id = @idPhone'
+                const accountResult = await database.request()
+                    .input('idPhone', phoneID)
+                    .query(queryAccount);
+
+                response.status(201).json({
+                    "userID": request.userData.uuid,
+                    "phoneID": phoneID,
+                    "phone": accountResult.recordset[0].phoneNo,
+                    "accountType": 1
+                })
+            }
+            else {
+                response.status(400).json({
+                    'message': 'Mã otp của bạn bị sai hoặc đã quá hạn!'
+                })
+            }
+        } else {
+            response.status(400).json({
+                "errorCode": "MSG0094",
+                "message": "Phone is not existing"
+            })
+        }
+    } catch (error) {
+        console.log(error);
+        response.status(500).json({
+            "error": 'Internal Server Error'
+        })
+    }
+})
+
+router.post('/profile/phone-update', checkAuth, checkRole, async (request, response) => {
+    try {
+        const phoneID = request.body.phoneID;
+        const phoneNo = request.body.phoneNo;
+        const phoneLabel = request.body.phoneLabel;
+        const isDefault = request.body.isDefault;
+
+        const queryPhone = "SELECT * FROM Phone WHERE id = @phoneID";
+        const resultPhone = await database.request()
+            .input('phoneID', phoneID)
+            .query(queryPhone);
+
+        if (resultPhone.recordset.length !== 0) {
+            if (isDefault === 1) {
+                const queryUser = 'SELECT id FROM [User] WHERE id_account = @idAccount';
+                const userResult = await database.request()
+                                                .input('idAccount', request.userData.uuid)
+                                                .query(queryUser);
+
+                const queryExistPhoneIsDefault = "SELECT * FROM Phone WHERE idUser = @idUser AND isDefault = 1";
+                const resultExistPhoneIsDefault = await database.request()
+                    .input('idUser', userResult.recordset[0].id)
+                    .query(queryExistPhoneIsDefault);
+
+                if (resultExistPhoneIsDefault.recordset.length !== 0) {
+                    const queryUpdateIsDefault = "UPDATE Phone SET isDefault = 0 WHERE id = @idPhone";
+                    const resultUpdateIsDefault = await database.request()
+                        .input('idPhone', resultExistPhoneIsDefault.recordset[0].id)
+                        .query(queryUpdateIsDefault);
+                }
+
+                const queryUpdatePhone = "UPDATE Phone SET isVerify = 0, phoneNo = @phoneNo, phoneLabel = @phoneLabel, isDefault = @isDefault WHERE id = @idPhone";
+                const resultUpdateEmail = await database.request()
+                    .input('idPhone', phoneID)
+                    .input('phoneLabel', phoneLabel)
+                    .input('phoneNo', phoneNo)
+                    .input('isDefault', isDefault)
+                    .query(queryUpdatePhone);
+
+            var otp = mail_util.getRandomInt();
+
+            const createdDate = new Date();
+            const expiredDate = new Date(createdDate.getTime() + 60000);
+
+            const queryOtp = 'INSERT INTO OtpPhone(value, createdDate, idPhone) OUTPUT inserted.id VALUES (@value, @createdDate, @idPhone)';
+            const otpResult = await database.request()
+                .input('value', otp)
+                .input('createdDate', createdDate)
+                .input('idPhone', phoneID)
+                .query(queryOtp);
+
+            
+                response.status(200).json({
+                    "status": 200,
+                    "message": "Update Phone Success",
+                    "result": {
+                        "userID": request.userData.uuid,
+                        "uuid": otpResult.recordset[0].id,
+                        "phoneID": phoneID,
+                        "phone": phoneNo,
+                        "isDefault": isDefault,
+                        "today": createdDate,
+                        "expired": expiredDate,
+                        "otp": otp.toString()
+                    }
+                })
+            } else {
+                response.status(400).json({
+                    "errorCode": "MSG0094",
+                    "message": "Phone is not existing"
+                })
+            }
+        }
+    } catch (error) {
+        console.log(error);
+        response.status(500).json({
+            "error": 'Internal Server Error'
+        })
+    }
+})
 // router.put('/update-profile', upload, checkAuth, checkRole, async(request, response) => {
 //     try{
 //         const firstName = request.body.firstName;

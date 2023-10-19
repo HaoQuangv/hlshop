@@ -141,7 +141,7 @@ router.post('/verify-otp', async (request, response) => {
 
         const today = new Date();
         const expired = today.getTime() - result.recordset[0].createdDate.getTime();
-        if (result.recordset[0].value === otp && expired < 90000) {
+        if (result.recordset[0].value === parseInt(otp) && expired < 60000) {
             const queryAccount = 'UPDATE Account SET isVerify  = 1 OUTPUT inserted.userLogin WHERE id = @idAccount'
             const accountResult = await database.request()
                 .input('idAccount', idAccount)
