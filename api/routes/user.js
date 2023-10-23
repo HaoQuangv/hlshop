@@ -8,6 +8,7 @@ const database = require("../../config");
 const checkAuth = require('../../middleware/check_auth');
 const checkRole = require('../../middleware/check_role_user');
 const firebase = require('../../firebase');
+const redisClient = require('../../middleware/redisClient');
 
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
@@ -15,6 +16,41 @@ require('dotenv').config();
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage }).single('file');
 
+const set = (key, value) => {
+    redisClient.set(key, JSON.stringify(value), 'EX', 3600);
+}
+
+const get = async (request, response, next) => {
+    let key = request.route.path + request.userData.uuid;
+    console.log(key);
+    let headersSent = false; // Cờ để kiểm tra xem header đã được gửi đi chưa
+
+    redisClient.on('error', (error) => {
+        console.error('Redis connection error:', error);
+        if (!headersSent) {
+            response.status(500).json({ error: 'Internal Server Error' });
+            headersSent = true;
+        }
+    });
+
+    redisClient.get(key, (error, data) => {
+        if (error) {
+            if (!headersSent) {
+                response.status(400).send(error);
+                headersSent = true;
+            }
+        } else {
+            if (data !== null) {
+                if (!headersSent) {
+                    response.status(200).send(JSON.parse(data));
+                    headersSent = true;
+                }
+            } else {
+                next();
+            }
+        }
+    });
+};
 
 // router.post('/create-profile', upload, checkAuth, checkRole, async (request, response) => {
 //     try{
@@ -113,8 +149,9 @@ const upload = multer({ storage: storage }).single('file');
 
 // })
 
-router.get('/get-profile', checkAuth, checkRole, async (request, response) => {
+router.get('/get-profile', checkAuth, checkRole, get, async (request, response) => {
     try {
+        console.log(144);
         const queryUser = "SELECT * FROM [User] WHERE id_account = @idAccount";
         const userResult = await database.request()
             .input("idAccount", request.userData.uuid)
@@ -122,28 +159,29 @@ router.get('/get-profile', checkAuth, checkRole, async (request, response) => {
 
         const queryAccount = "SELECT * FROM Account WHERE id = @idAccount"
         const resultAccount = await database.request()
-                                            .input('idAccount', request.userData.uuid)
-                                            .query(queryAccount)
+            .input('idAccount', request.userData.uuid)
+            .query(queryAccount)
 
         const queryEmail = "SELECT id AS emailID, emailAddress, emailLabel, isDefault, isVerify FROM Email WHERE idUser = @idUser";
         const resultEmail = await database.request()
-                                        .input('idUser', userResult.recordset[0].id)
-                                        .query(queryEmail)
-        
+            .input('idUser', userResult.recordset[0].id)
+            .query(queryEmail)
+
         const queryPhone = "SELECT id AS phoneID, phoneNo, extendNumber, phoneLabel, phoneArea, countryArea, isDefault, isVerify FROM Phone WHERE idUser = @idUser";
         const resultPhone = await database.request()
-                                        .input('idUser', userResult.recordset[0].id)
-                                        .query(queryPhone)
-        response.status(200).json({
+            .input('idUser', userResult.recordset[0].id)
+            .query(queryPhone)
+
+        const responseData = {
             "userID": request.userData.uuid,
-            "userLoginID": userResult.recordset[0].id,
+            "userLoginID": resultAccount.recordset[0].userLogin,
             "contactFullName": userResult.recordset[0].contactFullName,
             "slogan": userResult.recordset[0].slogan,
             "gender": userResult.recordset[0].gender,
             "pID": userResult.recordset[0].pID,
             "createdDate": userResult.recordset[0].createdDate,
             "accountType": resultAccount.recordset[0].role,
-            "accountStatus": resultAccount.recordset[0].isVerify ,
+            "accountStatus": resultAccount.recordset[0].isVerify,
             "userType": resultAccount.recordset[0].role,
             "emails": resultEmail.recordset,
             "phones": resultPhone.recordset,
@@ -161,7 +199,12 @@ router.get('/get-profile', checkAuth, checkRole, async (request, response) => {
             ],
             "userAvatar": userResult.recordset[0].userAvatar,
             "userCover": userResult.recordset[0].userCover
-        })
+        };
+
+        var key = request.route.path + request.userData.uuid;
+        set(key, responseData);
+
+        response.status(200).json(responseData)
     } catch (error) {
         console.log(error);
         response.status(500).json({

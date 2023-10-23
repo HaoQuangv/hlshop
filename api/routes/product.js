@@ -6,12 +6,52 @@ const database = require('../../config');
 
 const checkAuth = require('../../middleware/check_auth');
 const checkRole = require('../../middleware/check_role_admin');
+const redisClient = require('../../middleware/redisClient');
+
+require('dotenv').config();
+
 const firebase = require('../../firebase')
 
 const storage = multer.memoryStorage();
 const upload = multer({
     storage: storage
 });
+
+const set = (key, value) => {
+    redisClient.set(key, JSON.stringify(value), 'EX', 3600);
+}
+
+const get = async (request, response, next) => {
+    let key = request.route.path;
+    console.log(key);
+    let headersSent = false; // Cờ để kiểm tra xem header đã được gửi đi chưa
+
+    redisClient.on('error', (error) => {
+        console.error('Redis connection error:', error);
+        if (!headersSent) {
+            response.status(500).json({ error: 'Internal Server Error' });
+            headersSent = true;
+        }
+    });
+
+    redisClient.get(key, (error, data) => {
+        if (error) {
+            if (!headersSent) {
+                response.status(400).send(error);
+                headersSent = true;
+            }
+        } else {
+            if (data !== null) {
+                if (!headersSent) {
+                    response.status(200).send(JSON.parse(data));
+                    headersSent = true;
+                }
+            } else {
+                next();
+            }
+        }
+    });
+};
 
 router.post('/create-media-product', upload.array('file', 9), checkAuth, checkRole, async (request, response) => {
     try {
@@ -293,9 +333,9 @@ router.post('/create-product', checkAuth, checkRole, async (request, response) =
     }
 })
 
-router.get('/get-detail', async (request, response) => {
+router.get('/get-detail', get, async (request, response) => {
     try {
-        const idProduct = request.query.productID;
+        const idProduct = request.query.ProductID;
 
         var medias = [];
         var skus = [];
@@ -308,6 +348,9 @@ router.get('/get-detail', async (request, response) => {
         const resultMedia = await database.request()
             .input('idProduct', idProduct)
             .query(queryMedia)
+        
+        console.log(resultProduct.recordset[0].id_Category);
+
         const queryCategory = "SELECT * FROM Category WHERE id = @idCategory";
         const resultCategory = await database.request()
             .input('idCategory', resultProduct.recordset[0].id_Category)
@@ -336,21 +379,21 @@ router.get('/get-detail', async (request, response) => {
 
             medias.push(media);
         }
-        
+
         for (var x = 0; x < resultProductSku.recordset.length; x++) {
             var image = ""
-            if (resultProductSku.recordset[x].idAttribute1 === null){
+            if (resultProductSku.recordset[x].idAttribute1 === null) {
                 var queryImage = "SELECT linkString FROM Media WHERE id_product = @idProduct AND isDefault = 1";
                 var imageResult = await database.request()
-                                                .input('idProduct', resultProductSku.recordset[x].idProduct)
-                                                .query(queryImage);
-                 
-                image = imageResult.recordset[0].linkString;                                
-            }else{
+                    .input('idProduct', resultProductSku.recordset[x].idProduct)
+                    .query(queryImage);
+
+                image = imageResult.recordset[0].linkString;
+            } else {
                 var queryAttribute1 = "SELECT * FROM Product_attribute1 WHERE id = @idAttribute1";
                 var resultAttribute1 = await database.request()
-                                                    .input('idAttribute1', resultProductSku.recordset[x].idAttribute1)
-                                                    .query(queryAttribute1);
+                    .input('idAttribute1', resultProductSku.recordset[x].idAttribute1)
+                    .query(queryAttribute1);
 
                 image = resultAttribute1.recordset[0].image;
             }
@@ -366,7 +409,7 @@ router.get('/get-detail', async (request, response) => {
 
         var contactFullName = resultUser.recordset[0].first_name + " " + resultUser.recordset[0].last_name
 
-        response.status(200).json({
+        const responseData = {
             "productID": resultProduct.recordset[0].id,
             "sellerID": resultProduct.recordset[0].id_User,
             "productName": resultProduct.recordset[0].name,
@@ -389,7 +432,11 @@ router.get('/get-detail', async (request, response) => {
                 "linkString": resultUser.recordset[0].image
             },
             "productSKU": skus
-        })
+        }
+        var key = request.route.path;
+        set(key, responseData);
+
+        response.status(200).json(responseData);
     } catch (error) {
         console.log(error);
         response.status(500).json({
@@ -433,7 +480,7 @@ router.get('/get-product-sku-detail', async (request, response) => {
     }
 })
 
-router.get('/get-list-best-seller', async (request, response) => {
+router.get('/get-list-best-seller', get, async (request, response) => {
     try {
         var offset = request.query.offset;
         var limit = request.query.limit;
@@ -507,10 +554,14 @@ router.get('/get-list-best-seller', async (request, response) => {
             products.push(product);
         }
 
-        response.status(200).json({
+        var responseData = {
             "result": products,
             "total": 10// Set mặc định vì chưa biết total này là gì
-        })
+        }
+        var key = request.route.path;
+        set(key, responseData);
+
+        response.status(200).json(responseData);
     } catch (error) {
         console.log(error);
         response.status(500).json({
@@ -519,6 +570,275 @@ router.get('/get-list-best-seller', async (request, response) => {
     }
 })
 
+router.get('/get-list-new', get, async (request, response) => {
+    try {
+        var offset = request.query.offset;
+        var limit = request.query.limit;
+
+
+        if (offset == null || offset < 1) {
+            offset = 1;
+        }
+
+        if (limit == null) {
+            limit = 10;
+        }
+
+        offset = (offset - 1) * limit;
+
+        const queryProduct = "SELECT * FROM (SELECT TOP 10 * FROM Product ORDER BY createdDate DESC) AS subproduct ORDER BY name OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY";
+        const resultProduct = await database.request()
+            .input('offset', parseInt(offset))
+            .input('limit', parseInt(limit))
+            .query(queryProduct)
+        var products = []
+
+        for (var i = 0; i < resultProduct.recordset.length; i++) {
+            var medias = [];
+            var skus = [];
+
+            var queryMedia = "SELECT * FROM Media WHERE id_product = @idProduct";
+            var resultMedia = await database.request()
+                .input('idProduct', resultProduct.recordset[0].id)
+                .query(queryMedia);
+
+
+            var queryProductSku = "SELECT* from Product_sku WHERE idProduct =  @idProduct"
+            var resultProductSku = await database.request()
+                .input('idProduct', resultProduct.recordset[0].id)
+                .query(queryProductSku)
+
+
+            for (var x = 0; x < resultMedia.recordset.length; x++) {
+                var media = {};
+                media['mediaID'] = resultMedia.recordset[x].id;
+                media['linkString'] = resultMedia.recordset[x].linkString;
+                media['title'] = resultMedia.recordset[x].title;
+                media['description'] = resultMedia.recordset[x].description;
+                media['objectRefType'] = 0;
+                media['mediaType'] = 0;
+                media['objectRefID'] = "1";
+
+                medias.push(media);
+            }
+
+            for (var y = 0; y < resultProductSku.recordset.length; y++) {
+                var sku = {};
+                sku['productSKUID'] = resultProductSku.recordset[y].id;
+                sku['priceBefore'] = resultProductSku.recordset[y].priceBefore;
+                sku['price'] = resultProductSku.recordset[y].price;
+                // sku['idAttribute1'] = resultProductSku.recordset[y].idAttribute1;
+                // sku['idAttribute2'] = resultProductSku.recordset[y].idAttribute2;
+
+                skus.push(sku);
+            }
+
+            var product = {
+                "productID": resultProduct.recordset[i].id,
+                "productName": resultProduct.recordset[i].name,
+                "productDescription": resultProduct.recordset[i].decription,
+                "medias": medias,
+                "productSKU": skus,
+            }
+
+            products.push(product);
+        }
+
+        var responseData = {
+            "result": products,
+            "total": 10// Set mặc định vì chưa biết total này là gì
+        }
+        var key = request.route.path;
+        set(key, responseData);
+
+        response.status(200).json(responseData);
+    } catch (error) {
+        console.log(error);
+        response.status(500).json({
+            "error": 'Internal Server Error'
+        })
+    }
+})
+
+router.get('/get-list-hot', get, async (request, response) => {
+    try {
+        var offset = request.query.offset;
+        var limit = request.query.limit;
+
+
+        if (offset == null || offset < 1) {
+            offset = 1;
+        }
+
+        if (limit == null) {
+            limit = 10;
+        }
+
+        offset = (offset - 1) * limit;
+
+        const queryProduct = "SELECT * FROM (SELECT TOP 10 * FROM Product ORDER BY createdDate DESC) AS subproduct ORDER BY name OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY";
+        const resultProduct = await database.request()
+            .input('offset', parseInt(offset))
+            .input('limit', parseInt(limit))
+            .query(queryProduct)
+        var products = []
+
+        for (var i = 0; i < resultProduct.recordset.length; i++) {
+            var medias = [];
+            var skus = [];
+
+            var queryMedia = "SELECT * FROM Media WHERE id_product = @idProduct";
+            var resultMedia = await database.request()
+                .input('idProduct', resultProduct.recordset[0].id)
+                .query(queryMedia);
+
+
+            var queryProductSku = "SELECT* from Product_sku WHERE idProduct =  @idProduct"
+            var resultProductSku = await database.request()
+                .input('idProduct', resultProduct.recordset[0].id)
+                .query(queryProductSku)
+
+
+            for (var x = 0; x < resultMedia.recordset.length; x++) {
+                var media = {};
+                media['mediaID'] = resultMedia.recordset[x].id;
+                media['linkString'] = resultMedia.recordset[x].linkString;
+                media['title'] = resultMedia.recordset[x].title;
+                media['description'] = resultMedia.recordset[x].description;
+                media['objectRefType'] = 0;
+                media['mediaType'] = 0;
+                media['objectRefID'] = "1";
+
+                medias.push(media);
+            }
+
+            for (var y = 0; y < resultProductSku.recordset.length; y++) {
+                var sku = {};
+                sku['productSKUID'] = resultProductSku.recordset[y].id;
+                sku['priceBefore'] = resultProductSku.recordset[y].priceBefore;
+                sku['price'] = resultProductSku.recordset[y].price;
+                // sku['idAttribute1'] = resultProductSku.recordset[y].idAttribute1;
+                // sku['idAttribute2'] = resultProductSku.recordset[y].idAttribute2;
+
+                skus.push(sku);
+            }
+
+            var product = {
+                "productID": resultProduct.recordset[i].id,
+                "productName": resultProduct.recordset[i].name,
+                "productDescription": resultProduct.recordset[i].decription,
+                "medias": medias,
+                "productSKU": skus,
+            }
+
+            products.push(product);
+        }
+
+        var responseData = {
+            "result": products,
+            "total": 10// Set mặc định vì chưa biết total này là gì
+        }
+        var key = request.route.path;
+        set(key, responseData);
+
+        response.status(200).json(responseData);
+    } catch (error) {
+        console.log(error);
+        response.status(500).json({
+            "error": 'Internal Server Error'
+        })
+    }
+})
+
+router.get('/get-list-good-price-today', get, async (request, response) => {
+    try {
+        var offset = request.query.offset;
+        var limit = request.query.limit;
+
+
+        if (offset == null || offset < 1) {
+            offset = 1;
+        }
+
+        if (limit == null) {
+            limit = 10;
+        }
+
+        offset = (offset - 1) * limit;
+
+        const queryProduct = "SELECT * FROM (SELECT TOP 10 * FROM Product ORDER BY createdDate DESC) AS subproduct ORDER BY name OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY";
+        const resultProduct = await database.request()
+            .input('offset', parseInt(offset))
+            .input('limit', parseInt(limit))
+            .query(queryProduct)
+        var products = []
+
+        for (var i = 0; i < resultProduct.recordset.length; i++) {
+            var medias = [];
+            var skus = [];
+
+            var queryMedia = "SELECT * FROM Media WHERE id_product = @idProduct";
+            var resultMedia = await database.request()
+                .input('idProduct', resultProduct.recordset[0].id)
+                .query(queryMedia);
+
+
+            var queryProductSku = "SELECT* from Product_sku WHERE idProduct =  @idProduct"
+            var resultProductSku = await database.request()
+                .input('idProduct', resultProduct.recordset[0].id)
+                .query(queryProductSku)
+
+
+            for (var x = 0; x < resultMedia.recordset.length; x++) {
+                var media = {};
+                media['mediaID'] = resultMedia.recordset[x].id;
+                media['linkString'] = resultMedia.recordset[x].linkString;
+                media['title'] = resultMedia.recordset[x].title;
+                media['description'] = resultMedia.recordset[x].description;
+                media['objectRefType'] = 0;
+                media['mediaType'] = 0;
+                media['objectRefID'] = "1";
+
+                medias.push(media);
+            }
+
+            for (var y = 0; y < resultProductSku.recordset.length; y++) {
+                var sku = {};
+                sku['productSKUID'] = resultProductSku.recordset[y].id;
+                sku['priceBefore'] = resultProductSku.recordset[y].priceBefore;
+                sku['price'] = resultProductSku.recordset[y].price;
+                // sku['idAttribute1'] = resultProductSku.recordset[y].idAttribute1;
+                // sku['idAttribute2'] = resultProductSku.recordset[y].idAttribute2;
+
+                skus.push(sku);
+            }
+
+            var product = {
+                "productID": resultProduct.recordset[i].id,
+                "productName": resultProduct.recordset[i].name,
+                "productDescription": resultProduct.recordset[i].decription,
+                "medias": medias,
+                "productSKU": skus,
+            }
+
+            products.push(product);
+        }
+
+        var responseData = {
+            "result": products,
+            "total": 10// Set mặc định vì chưa biết total này là gì
+        }
+        var key = request.route.path;
+        set(key, responseData);
+
+        response.status(200).json(responseData);
+    } catch (error) {
+        console.log(error);
+        response.status(500).json({
+            "error": 'Internal Server Error'
+        })
+    }
+})
 // router.get("/get-list-by-category", async (request, response) => {
 //     try {
 //         var offset = request.query.offset;
