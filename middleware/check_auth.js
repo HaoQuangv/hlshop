@@ -11,11 +11,11 @@ async function authenticateToken(request, response, next) {
             "statusCode": 401,
             "message": "Unauthorized"
             })
+        }else{
+            const decoded = jwt.verify(token, process.env.privateKey);
+            request.userData = decoded;
+            next();
         }
-  
-        const decoded = jwt.verify(token, process.env.privateKey);
-        request.userData = decoded;
-        next();
     }catch(error){
         console.log(error);
         response.status(500).json({
