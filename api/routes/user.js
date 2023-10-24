@@ -16,41 +16,41 @@ require('dotenv').config();
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage }).single('file');
 
-const set = (key, value) => {
-    redisClient.set(key, JSON.stringify(value), 'EX', 3600);
-}
+// const set = (key, value) => {
+//     redisClient.set(key, JSON.stringify(value), 'EX', 3600);
+// }
 
-const get = async (request, response, next) => {
-    let key = request.route.path + request.userData.uuid;
-    console.log(key);
-    let headersSent = false; // Cờ để kiểm tra xem header đã được gửi đi chưa
+// const get = async (request, response, next) => {
+//     let key = request.route.path + request.userData.uuid;
+//     console.log(key);
+//     let headersSent = false; // Cờ để kiểm tra xem header đã được gửi đi chưa
 
-    redisClient.on('error', (error) => {
-        console.error('Redis connection error:', error);
-        if (!headersSent) {
-            response.status(500).json({ error: 'Internal Server Error' });
-            headersSent = true;
-        }
-    });
+//     redisClient.on('error', (error) => {
+//         console.error('Redis connection error:', error);
+//         if (!headersSent) {
+//             response.status(500).json({ error: 'Internal Server Error' });
+//             headersSent = true;
+//         }
+//     });
 
-    redisClient.get(key, (error, data) => {
-        if (error) {
-            if (!headersSent) {
-                response.status(400).send(error);
-                headersSent = true;
-            }
-        } else {
-            if (data !== null) {
-                if (!headersSent) {
-                    response.status(200).send(JSON.parse(data));
-                    headersSent = true;
-                }
-            } else {
-                next();
-            }
-        }
-    });
-};
+//     redisClient.get(key, (error, data) => {
+//         if (error) {
+//             if (!headersSent) {
+//                 response.status(400).send(error);
+//                 headersSent = true;
+//             }
+//         } else {
+//             if (data !== null) {
+//                 if (!headersSent) {
+//                     response.status(200).send(JSON.parse(data));
+//                     headersSent = true;
+//                 }
+//             } else {
+//                 next();
+//             }
+//         }
+//     });
+// };
 
 // router.post('/create-profile', upload, checkAuth, checkRole, async (request, response) => {
 //     try{
@@ -149,7 +149,7 @@ const get = async (request, response, next) => {
 
 // })
 
-router.get('/get-profile', checkAuth, checkRole, get, async (request, response) => {
+router.get('/get-profile', checkAuth, checkRole, async (request, response) => {
     try {
         console.log(144);
         const queryUser = "SELECT * FROM [User] WHERE id_account = @idAccount";
@@ -201,8 +201,8 @@ router.get('/get-profile', checkAuth, checkRole, get, async (request, response) 
             "userCover": userResult.recordset[0].userCover
         };
 
-        var key = request.route.path + request.userData.uuid;
-        set(key, responseData);
+        // var key = request.route.path + request.userData.uuid;
+        // set(key, responseData);
 
         response.status(200).json(responseData)
     } catch (error) {
@@ -272,10 +272,10 @@ router.post('/profile/update-cover', upload, checkAuth, checkRole, async (reques
             })
         } else {
             var image = '';
-            const blob = firebase.bucket.file(request.file.originalname)
+            const blob = firebase.bucket.file(request.file_cover.originalname)
             const blobWriter = blob.createWriteStream({
                 metadata: {
-                    contentType: request.file.mimetype
+                    contentType: request.file_cover.mimetype
                 }
             })
             blobWriter.on('error', (err) => {
@@ -298,10 +298,7 @@ router.post('/profile/update-cover', upload, checkAuth, checkRole, async (reques
                         .input('image', image)
                         .query(queryUser);
 
-                    response.status(201).json({
-                        "userID": request.userData.uuid,
-                        "linkString": image
-                    })
+                    response.status(201)
                 } catch (err) {
                     response.status(500).json({
                         "error": err.message
@@ -309,7 +306,7 @@ router.post('/profile/update-cover', upload, checkAuth, checkRole, async (reques
                 }
             });
 
-            blobWriter.end(request.file.buffer);
+            blobWriter.end(request.file_cover.buffer);
         }
     } catch (error) {
         console.log(error);
@@ -328,10 +325,10 @@ router.post('/profile/update-avatar', upload, checkAuth, checkRole, async (reque
             })
         } else {
             var image = '';
-            const blob = firebase.bucket.file(request.file.originalname)
+            const blob = firebase.bucket.file(request.file_avatar.originalname)
             const blobWriter = blob.createWriteStream({
                 metadata: {
-                    contentType: request.file.mimetype
+                    contentType: request.file_avatar.mimetype
                 }
             })
             blobWriter.on('error', (err) => {
@@ -354,10 +351,7 @@ router.post('/profile/update-avatar', upload, checkAuth, checkRole, async (reque
                         .input('image', image)
                         .query(queryUser);
 
-                    response.status(201).json({
-                        "userID": request.userData.uuid,
-                        "linkString": image
-                    })
+                    response.status(201)
                 } catch (err) {
                     response.status(500).json({
                         "error": err.message
@@ -365,7 +359,7 @@ router.post('/profile/update-avatar', upload, checkAuth, checkRole, async (reque
                 }
             });
 
-            blobWriter.end(request.file.buffer);
+            blobWriter.end(request.file_avatar.buffer);
         }
     } catch (error) {
         console.log(error);
