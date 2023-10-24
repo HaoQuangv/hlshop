@@ -14,7 +14,9 @@ const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 const storage = multer.memoryStorage();
-const upload = multer({ storage: storage }).single('file');
+const upload = multer({ storage: storage }).single('file_cover');
+
+const upload1 = multer({ storage: storage }).single('file_avatar');
 
 // const set = (key, value) => {
 //     redisClient.set(key, JSON.stringify(value), 'EX', 3600);
@@ -272,10 +274,10 @@ router.post('/profile/update-cover', upload, checkAuth, checkRole, async (reques
             })
         } else {
             var image = '';
-            const blob = firebase.bucket.file(request.file_cover.originalname)
+            const blob = firebase.bucket.file(request.file.originalname)
             const blobWriter = blob.createWriteStream({
                 metadata: {
-                    contentType: request.file_cover.mimetype
+                    contentType: request.file.mimetype
                 }
             })
             blobWriter.on('error', (err) => {
@@ -298,7 +300,9 @@ router.post('/profile/update-cover', upload, checkAuth, checkRole, async (reques
                         .input('image', image)
                         .query(queryUser);
 
-                    response.status(201)
+                    response.status(201).json({
+                        "message": "Upload successful!"
+                    })
                 } catch (err) {
                     response.status(500).json({
                         "error": err.message
@@ -306,7 +310,7 @@ router.post('/profile/update-cover', upload, checkAuth, checkRole, async (reques
                 }
             });
 
-            blobWriter.end(request.file_cover.buffer);
+            blobWriter.end(request.file.buffer);
         }
     } catch (error) {
         console.log(error);
@@ -316,7 +320,7 @@ router.post('/profile/update-cover', upload, checkAuth, checkRole, async (reques
     }
 })
 
-router.post('/profile/update-avatar', upload, checkAuth, checkRole, async (request, response) => {
+router.post('/profile/update-avatar', upload1, checkAuth, checkRole, async (request, response) => {
     try {
         if (!request.file) {
             response.status(400).json({
@@ -325,10 +329,10 @@ router.post('/profile/update-avatar', upload, checkAuth, checkRole, async (reque
             })
         } else {
             var image = '';
-            const blob = firebase.bucket.file(request.file_avatar.originalname)
+            const blob = firebase.bucket.file(request.file.originalname)
             const blobWriter = blob.createWriteStream({
                 metadata: {
-                    contentType: request.file_avatar.mimetype
+                    contentType: request.file.mimetype
                 }
             })
             blobWriter.on('error', (err) => {
@@ -351,7 +355,9 @@ router.post('/profile/update-avatar', upload, checkAuth, checkRole, async (reque
                         .input('image', image)
                         .query(queryUser);
 
-                    response.status(201)
+                    response.status(201).json({
+                        "message": "Upload successful!"
+                    })
                 } catch (err) {
                     response.status(500).json({
                         "error": err.message
@@ -359,7 +365,7 @@ router.post('/profile/update-avatar', upload, checkAuth, checkRole, async (reque
                 }
             });
 
-            blobWriter.end(request.file_avatar.buffer);
+            blobWriter.end(request.file.buffer);
         }
     } catch (error) {
         console.log(error);
