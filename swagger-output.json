@@ -944,7 +944,7 @@
         }
       }
     },
-    "/api/hlshop/address/add": {
+    "/api/hlshop/receiver-address/add": {
       "post": {
         "description": "",
         "parameters": [
@@ -974,9 +974,6 @@
                 "districtName": {
                   "example": "any"
                 },
-                "wardName": {
-                  "example": "any"
-                },
                 "addressDetail": {
                   "example": "any"
                 },
@@ -1000,7 +997,7 @@
         }
       }
     },
-    "/api/hlshop/address/update": {
+    "/api/hlshop/receiver-address/update": {
       "post": {
         "description": "",
         "parameters": [
@@ -1033,9 +1030,6 @@
                 "districtName": {
                   "example": "any"
                 },
-                "wardName": {
-                  "example": "any"
-                },
                 "addressDetail": {
                   "example": "any"
                 },
@@ -1062,7 +1056,7 @@
         }
       }
     },
-    "/api/hlshop/address/delete": {
+    "/api/hlshop/receiver-address/delete": {
       "delete": {
         "description": "",
         "parameters": [
@@ -1100,7 +1094,7 @@
         }
       }
     },
-    "/api/hlshop/address/add-default": {
+    "/api/hlshop/receiver-address/add-default": {
       "post": {
         "description": "",
         "parameters": [
@@ -1138,7 +1132,7 @@
         }
       }
     },
-    "/api/hlshop/address/get-list": {
+    "/api/hlshop/receiver-address/get-list": {
       "get": {
         "description": "",
         "parameters": [
@@ -1476,6 +1470,90 @@
         }
       }
     },
+    "/api/hlshop/product/get-list-same-category": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "offset",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "productID",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "productCategoryID",
+            "in": "query",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/hlshop/product/get-product-attribute": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "productID",
+            "in": "query",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/hlshop/product/get-product-sku-by-product-id": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "productID",
+            "in": "query",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
     "/api/hlshop/cart/add-cart": {
       "post": {
         "description": "",
@@ -1571,6 +1649,51 @@
           },
           "401": {
             "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/hlshop/cities/get-list": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "offset",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/hlshop/district/get-list-by-city-id": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "cityID",
+            "in": "query",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
           },
           "500": {
             "description": "Internal Server Error"

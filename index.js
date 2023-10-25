@@ -13,6 +13,9 @@ const userRouter = require('./api/routes/user');
 const addressRouter = require('./api/routes/address');
 const productRouter = require('./api/routes/product');
 const cartRouter = require('./api/routes/cart');
+const cityRouter = require('./api/routes/city')
+const districtRouter = require('./api/routes/district')
+
 const port = 80;
 
 
@@ -23,9 +26,12 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/hlshop/auth', accountRouter);
 app.use('/api/hlshop/users', userRouter);
 app.use('/api/hlshop/product-category', categoryRouter);
-app.use('/api/hlshop/address', addressRouter);
+app.use('/api/hlshop/receiver-address', addressRouter);
 app.use('/api/hlshop/product', productRouter);
 app.use('/api/hlshop/cart', cartRouter);
+app.use('/api/hlshop/cities', cityRouter);
+app.use('/api/hlshop/district', districtRouter);
+
 // app.get('/', function (request, response) {
 //     response.send("Hello word, this is group 08")
 // })
