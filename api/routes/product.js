@@ -993,6 +993,7 @@ router.get('/get-product-attribute', async (request, response) => {
             });
         }
         responseData.push({
+            "attributeID": "1",
             "locAttributeName": attribute2Name,
             "locAttributeDescription": attribute2Name,
             "attributeValue": arrayAttributeValue2
@@ -1027,6 +1028,15 @@ router.get('/get-product-sku-by-product-id', get, async (request, response) => {
                     .query(queryImage);
 
                 image = imageResult.recordset[0].linkString;
+
+                var sku = {};
+                sku['productSKUID'] = resultProductSku.recordset[x].id;
+                sku['linkString'] = image;
+                sku['price'] = resultProductSku.recordset[x].price;
+                sku['priceBefore'] = resultProductSku.recordset[x].priceBefore;
+                sku['productVersionID'] = "1";
+                sku['attribute'] = [];
+                skus.push(sku);
             } else {
                 var queryAttribute1 = "SELECT * FROM Product_attribute1 WHERE id = @idAttribute1";
                 var resultAttribute1 = await database.request()
@@ -1034,7 +1044,9 @@ router.get('/get-product-sku-by-product-id', get, async (request, response) => {
                     .query(queryAttribute1);
 
                 attribute.push({
+                    "productSKUConditionID": "1",
                     "productSKUID": resultProductSku.recordset[x].id,
+                    "attributeID": "1",
                     "locAttributeName": resultAttribute1.recordset[0].name,
                     "locAttributeDescription": resultAttribute1.recordset[0].name,
                     "attributeValueID": resultAttribute1.recordset[0].id,
@@ -1048,7 +1060,9 @@ router.get('/get-product-sku-by-product-id', get, async (request, response) => {
                     .query(queryAttribute2);
                 if (resultAttribute2.recordset.length !== 0) {
                     attribute.push({
+                        "productSKUConditionID": "1",
                         "productSKUID": resultProductSku.recordset[x].id,
+                        "attributeID": "1",
                         "locAttributeName": resultAttribute2.recordset[0].name,
                         "locAttributeDescription": resultAttribute2.recordset[0].name,
                         "attributeValueID": resultAttribute2.recordset[0].id,
@@ -1067,7 +1081,10 @@ router.get('/get-product-sku-by-product-id', get, async (request, response) => {
                 skus.push(sku);
             }
         }
-        response.status(201).json(skus);
+        response.status(201).json({
+            "productID": productID,
+            "productSKU": skus  
+        });
     } catch (error) {
         console.log(error);
         response.status(500).json({
