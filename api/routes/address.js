@@ -11,7 +11,9 @@ router.post("/add", checkAuth, checkRole, async (request, response) => {
     const receiverPhone = request.body.receiverPhone;
     const receiverEmail = request.body.receiverEmail;
     const cityName = request.body.cityName;
+    const cityID = request.body.cityID;
     const districtName = request.body.districtName;
+    const districtID = request.body.districtID;
     const addressDetail = request.body.addressDetail;
     const addressLabel = Number(request.body.addressLabel);
 
@@ -24,14 +26,16 @@ router.post("/add", checkAuth, checkRole, async (request, response) => {
     const addressString = addressDetail + ", " + districtName + ", " + cityName;
     console.log(request.userData.uuid);
     const queryAddress =
-      "INSERT INTO AddressReceive(receiverPhone, receiverContactName, receiverEmail, isDefault, cityName, districtName, addressDetail, addressString, addressLabel, id_user) VALUES (@receiverPhone, @receiverContactName, @receiverEmail, 0, @cityName, @districtName, @addressDetail, @addressString, @addressLabel, @userID)";
+      "INSERT INTO AddressReceive(receiverPhone, receiverContactName, receiverEmail, isDefault, cityName, districtName, addressDetail, addressString, addressLabel, id_user, cityID, districtID) VALUES (@receiverPhone, @receiverContactName, @receiverEmail, 0, @cityName, @districtName, @addressDetail, @addressString, @addressLabel, @userID, @cityID, @districtID)";
     const addressResult = await database
       .request()
       .input("receiverPhone", receiverPhone)
       .input("receiverContactName", receiverContactName)
       .input("receiverEmail", receiverEmail)
       .input("cityName", cityName)
+      .input("cityID", cityID)
       .input("districtName", districtName)
+      .input("districtID", districtID)
       .input("addressDetail", addressDetail)
       .input("addressString", addressString)
       .input("addressLabel", addressLabel)
@@ -56,7 +60,9 @@ router.post("/update", checkAuth, checkRole, async (request, response) => {
     const receiverPhone = request.body.receiverPhone;
     const receiverEmail = request.body.receiverEmail;
     const cityName = request.body.cityName;
+    const cityID = request.body.cityID;
     const districtName = request.body.districtName;
+    const districtID = request.body.districtID;
     const addressDetail = request.body.addressDetail;
     const addressLabel = request.body.addressLabel;
 
@@ -75,14 +81,16 @@ router.post("/update", checkAuth, checkRole, async (request, response) => {
       var addressString = addressDetail + ", " + districtName + ", " + cityName;
 
       const queryAddress =
-        "UPDATE AddressReceive SET receiverPhone = @receiverPhone, receiverEmail = @receiverEmail, receiverContactName = @receiverContactName, cityName = @cityName, districtName = @districtName, addressDetail = @addressDetail, addressString = @addressString, addressLabel = @addressLabel WHERE id = @addressID";
+        "UPDATE AddressReceive SET receiverPhone = @receiverPhone, receiverEmail = @receiverEmail, receiverContactName = @receiverContactName, cityName = @cityName, districtName = @districtName, addressDetail = @addressDetail, addressString = @addressString, addressLabel = @addressLabel, cityID = @cityID, districtID = @districtID WHERE id = @addressID";
       const addressResult = await database
         .request()
         .input("receiverPhone", receiverPhone)
         .input("receiverEmail", receiverEmail)
         .input("receiverContactName", receiverContactName)
         .input("cityName", cityName)
+        .input("cityID", cityID)
         .input("districtName", districtName)
+        .input("districtID", districtID)
         .input("addressDetail", addressDetail)
         .input("addressString", addressString)
         .input("addressLabel", addressLabel)
@@ -212,7 +220,7 @@ router.get("/get-list", checkAuth, checkRole, async (request, response) => {
       .query(queryUser);
 
     const query =
-      "SELECT id AS receiverAddressID, receiverContactName, receiverPhone, receiverEmail, addressLabel, id_user AS userID, addressString, isDefault, cityName, districtName, addressDetail FROM AddressReceive WHERE id_user = @userID ORDER BY isDefault OFFSET @page ROWS FETCH NEXT @pageSize ROWS ONLY";
+      "SELECT id AS receiverAddressID, receiverContactName, receiverPhone, receiverEmail, addressLabel, id_user AS userID, addressString, isDefault, cityName, districtName, cityID, districtID, addressDetail FROM AddressReceive WHERE id_user = @userID ORDER BY isDefault OFFSET @page ROWS FETCH NEXT @pageSize ROWS ONLY";
     const result = await database
       .request()
       .input("page", parseInt(offset))
