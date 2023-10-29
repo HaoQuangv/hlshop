@@ -380,7 +380,6 @@ router.get("/get-detail", get, async (request, response) => {
   try {
     const { ProductID } = request.query;
     idProduct = ProductID;
-    console.log(123);
     if (idProduct === null || idProduct === "" || idProduct === undefined) {
       response.status(400).json({
         error: "productID is empty",
@@ -578,14 +577,14 @@ router.get("/get-list-best-seller", get, async (request, response) => {
       var queryMedia = "SELECT * FROM Media WHERE id_product = @idProduct";
       var resultMedia = await database
         .request()
-        .input("idProduct", resultProduct.recordset[0].id)
+        .input("idProduct", resultProduct.recordset[i].id)
         .query(queryMedia);
 
       var queryProductSku =
         "SELECT* from Product_sku WHERE idProduct =  @idProduct";
       var resultProductSku = await database
         .request()
-        .input("idProduct", resultProduct.recordset[0].id)
+        .input("idProduct", resultProduct.recordset[i].id)
         .query(queryProductSku);
 
       for (var x = 0; x < resultMedia.recordset.length; x++) {
@@ -670,14 +669,14 @@ router.get("/get-list-new", get, async (request, response) => {
       var queryMedia = "SELECT * FROM Media WHERE id_product = @idProduct";
       var resultMedia = await database
         .request()
-        .input("idProduct", resultProduct.recordset[0].id)
+        .input("idProduct", resultProduct.recordset[i].id)
         .query(queryMedia);
 
       var queryProductSku =
         "SELECT* from Product_sku WHERE idProduct =  @idProduct";
       var resultProductSku = await database
         .request()
-        .input("idProduct", resultProduct.recordset[0].id)
+        .input("idProduct", resultProduct.recordset[i].id)
         .query(queryProductSku);
 
       for (var x = 0; x < resultMedia.recordset.length; x++) {
@@ -762,14 +761,14 @@ router.get("/get-list-hot", get, async (request, response) => {
       var queryMedia = "SELECT * FROM Media WHERE id_product = @idProduct";
       var resultMedia = await database
         .request()
-        .input("idProduct", resultProduct.recordset[0].id)
+        .input("idProduct", resultProduct.recordset[i].id)
         .query(queryMedia);
 
       var queryProductSku =
         "SELECT* from Product_sku WHERE idProduct =  @idProduct";
       var resultProductSku = await database
         .request()
-        .input("idProduct", resultProduct.recordset[0].id)
+        .input("idProduct", resultProduct.recordset[i].id)
         .query(queryProductSku);
 
       for (var x = 0; x < resultMedia.recordset.length; x++) {
@@ -854,14 +853,14 @@ router.get("/get-list-good-price-today", get, async (request, response) => {
       var queryMedia = "SELECT * FROM Media WHERE id_product = @idProduct";
       var resultMedia = await database
         .request()
-        .input("idProduct", resultProduct.recordset[0].id)
+        .input("idProduct", resultProduct.recordset[i].id)
         .query(queryMedia);
 
       var queryProductSku =
         "SELECT* from Product_sku WHERE idProduct =  @idProduct";
       var resultProductSku = await database
         .request()
-        .input("idProduct", resultProduct.recordset[0].id)
+        .input("idProduct", resultProduct.recordset[i].id)
         .query(queryProductSku);
 
       for (var x = 0; x < resultMedia.recordset.length; x++) {
@@ -953,14 +952,14 @@ router.get("/get-list-same-category", get, async (request, response) => {
       var queryMedia = "SELECT * FROM Media WHERE id_product = @idProduct";
       var resultMedia = await database
         .request()
-        .input("idProduct", resultProduct.recordset[0].id)
+        .input("idProduct", resultProduct.recordset[i].id)
         .query(queryMedia);
 
       var queryProductSku =
         "SELECT* from Product_sku WHERE idProduct =  @idProduct";
       var resultProductSku = await database
         .request()
-        .input("idProduct", resultProduct.recordset[0].id)
+        .input("idProduct", resultProduct.recordset[i].id)
         .query(queryProductSku);
 
       for (var x = 0; x < resultMedia.recordset.length; x++) {
