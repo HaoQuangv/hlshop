@@ -1014,160 +1014,300 @@ router.get("/get-list-same-category", get, async (request, response) => {
 });
 
 router.get("/get-product-attribute", async (request, response) => {
-  try {
-    console.log(955);
-    const productID = request.query.productID;
-    console.log(productID);
-    let responseData = [];
-    let arrayAttributeValue1 = [];
-    let arrayAttributeValue2 = [];
-    let attribute1Name;
-    let attribute2Name;
-    const queryAttribute1 =
-      "SELECT DISTINCT idAttribute1 FROM Product_sku WHERE idProduct = @productID";
-    const resultAttribute1 = await database
-      .request()
-      .input("productID", productID)
-      .query(queryAttribute1);
+  //   try {
+  //     console.log(955);
+  //     const productID = request.query.productID;
+  //     console.log(productID);
+  //     let responseData = [];
+  //     let arrayAttributeValue1 = [];
+  //     let arrayAttributeValue2 = [];
+  //     let attribute1Name;
+  //     let attribute2Name;
+  //     const queryAttribute1 =
+  //       "SELECT DISTINCT idAttribute1 FROM Product_sku WHERE idProduct = @productID";
+  //     const resultAttribute1 = await database
+  //       .request()
+  //       .input("productID", productID)
+  //       .query(queryAttribute1);
 
-    const queryAttribute2 =
-      "SELECT DISTINCT idAttribute2 FROM Product_sku WHERE idProduct = @productID";
-    const resultAttribute2 = await database
-      .request()
-      .input("productID", productID)
-      .query(queryAttribute2);
+  //     const queryAttribute2 =
+  //       "SELECT DISTINCT idAttribute2 FROM Product_sku WHERE idProduct = @productID";
+  //     const resultAttribute2 = await database
+  //       .request()
+  //       .input("productID", productID)
+  //       .query(queryAttribute2);
 
-    const queryAttributeValue1 =
-      "SELECT id AS attributeValueID, name AS locAttributeValueName, description FROM Product_attribute1 WHERE id = @id";
-    const queryAttributeValue2 =
-      "SELECT id AS attributeValueID, name AS locAttributeValueName, description FROM Product_attribute2 WHERE id = @id";
+  //     const queryAttributeValue1 =
+  //       "SELECT id AS attributeValueID, name AS locAttributeValueName, description FROM Product_attribute1 WHERE id = @id";
+  //     const queryAttributeValue2 =
+  //       "SELECT id AS attributeValueID, name AS locAttributeValueName, description FROM Product_attribute2 WHERE id = @id";
 
-    for (var i = 0; i < resultAttribute1.recordset.length; i++) {
-      const resultAttributeValue1 = await database
-        .request()
-        .input("id", resultAttribute1.recordset[i].idAttribute1)
-        .query(queryAttributeValue1);
+  //     for (var i = 0; i < resultAttribute1.recordset.length; i++) {
+  //       const resultAttributeValue1 = await database
+  //         .request()
+  //         .input("id", resultAttribute1.recordset[i].idAttribute1)
+  //         .query(queryAttributeValue1);
 
-      attribute1Name = resultAttributeValue1.recordset[0].locAttributeValueName;
-      arrayAttributeValue1.push({
-        attributeValueID: resultAttributeValue1.recordset[0].attributeValueID,
-        locAttributeValueName: resultAttributeValue1.recordset[0].description,
-        locAttributeValueDescription:
-          resultAttributeValue1.recordset[0].description,
-      });
-    }
-    responseData.push({
-      locAttributeName: attribute1Name,
-      locAttributeDescription: attribute1Name,
-      attributeValue: arrayAttributeValue1,
-    });
+  //       attribute1Name = resultAttributeValue1.recordset[0].locAttributeValueName;
+  //       arrayAttributeValue1.push({
+  //         attributeValueID: resultAttributeValue1.recordset[0].attributeValueID,
+  //         locAttributeValueName: resultAttributeValue1.recordset[0].description,
+  //         locAttributeValueDescription:
+  //           resultAttributeValue1.recordset[0].description,
+  //       });
+  //     }
+  //     responseData.push({
+  //       locAttributeName: attribute1Name,
+  //       locAttributeDescription: attribute1Name,
+  //       attributeValue: arrayAttributeValue1,
+  //     });
 
-    for (var i = 0; i < resultAttribute2.recordset.length; i++) {
-      const resultAttributeValue2 = await database
-        .request()
-        .input("id", resultAttribute2.recordset[i].idAttribute2)
-        .query(queryAttributeValue2);
+  //     for (var i = 0; i < resultAttribute2.recordset.length; i++) {
+  //       const resultAttributeValue2 = await database
+  //         .request()
+  //         .input("id", resultAttribute2.recordset[i].idAttribute2)
+  //         .query(queryAttributeValue2);
 
-      attribute2Name = resultAttributeValue2.recordset[0].locAttributeValueName;
-      arrayAttributeValue2.push({
-        attributeValueID: resultAttributeValue2.recordset[0].attributeValueID,
-        locAttributeValueName: resultAttributeValue2.recordset[0].description,
-        locAttributeValueDescription:
-          resultAttributeValue2.recordset[0].description,
-      });
-    }
-    responseData.push({
-      locAttributeName: attribute2Name,
-      locAttributeDescription: attribute2Name,
-      attributeValue: arrayAttributeValue2,
-    });
+  //       attribute2Name = resultAttributeValue2.recordset[0].locAttributeValueName;
+  //       arrayAttributeValue2.push({
+  //         attributeValueID: resultAttributeValue2.recordset[0].attributeValueID,
+  //         locAttributeValueName: resultAttributeValue2.recordset[0].description,
+  //         locAttributeValueDescription:
+  //           resultAttributeValue2.recordset[0].description,
+  //       });
+  //     }
+  //     responseData.push({
+  //       locAttributeName: attribute2Name,
+  //       locAttributeDescription: attribute2Name,
+  //       attributeValue: arrayAttributeValue2,
+  //     });
 
-    console.log(1004);
-    response.status(201).json(responseData);
-  } catch (error) {
-    console.log(error);
-    response.status(500).json({
-      error: "Internal Server Error",
-    });
-  }
+  //     console.log(1004);
+  //     response.status(201).json(responseData);
+  //   } catch (error) {
+  //     console.log(error);
+  //     response.status(500).json({
+  //       error: "Internal Server Error",
+  //     });
+  //   }
+  response.status(201).json([
+    {
+      attributeID: "1",
+      locAttributeName: "Phân Loại",
+      locAttributeDescription: "Phân Loại",
+      attributeValue: [
+        {
+          attributeValueID: "1",
+          locAttributeValueName: "Combo 10 Tuýp",
+          locAttributeValueDescription: "Combo 10 Tuýp",
+        },
+        {
+          attributeValueID: "2",
+          locAttributeValueName: "1 Thùng",
+          locAttributeValueDescription: "1 Thùng",
+        },
+        {
+          attributeValueID: "3",
+          locAttributeValueName: "1 Tuýp",
+          locAttributeValueDescription: "1 Tuýp",
+        },
+      ],
+    },
+    {
+      attributeID: "2",
+      locAttributeName: "Kích thước",
+      locAttributeDescription: "Kích thước",
+      attributeValue: [
+        {
+          attributeValueID: "5",
+          locAttributeValueName: "100ml",
+          locAttributeValueDescription: "100 ml",
+        },
+        {
+          attributeValueID: "6",
+          locAttributeValueName: "300ml",
+          locAttributeValueDescription: "300 ml",
+        },
+      ],
+    },
+    {
+      attributeID: "3",
+      locAttributeName: "Màu sắc",
+      locAttributeDescription: "Màu sắc",
+      attributeValue: [],
+    },
+  ]);
 });
 
 router.get("/get-product-sku-by-product-id", get, async (request, response) => {
-  try {
-    const productID = request.query.productID;
-    var skus = [];
-    const queryProductSku =
-      "SELECT * from Product_sku WHERE idProduct =  @idProduct";
-    const resultProductSku = await database
-      .request()
-      .input("idProduct", productID)
-      .query(queryProductSku);
+  //   try {
+  //     const productID = request.query.productID;
+  //     var skus = [];
+  //     const queryProductSku =
+  //       "SELECT * from Product_sku WHERE idProduct =  @idProduct";
+  //     const resultProductSku = await database
+  //       .request()
+  //       .input("idProduct", productID)
+  //       .query(queryProductSku);
 
-    for (var x = 0; x < resultProductSku.recordset.length; x++) {
-      var image = "";
-      var attribute = [];
-      if (resultProductSku.recordset[x].idAttribute1 === null) {
-        var queryImage =
-          "SELECT linkString FROM Media WHERE id_product = @idProduct AND isDefault = 1";
-        var imageResult = await database
-          .request()
-          .input("idProduct", resultProductSku.recordset[x].idProduct)
-          .query(queryImage);
+  //     for (var x = 0; x < resultProductSku.recordset.length; x++) {
+  //       var image = "";
+  //       var attribute = [];
+  //       if (resultProductSku.recordset[x].idAttribute1 === null) {
+  //         var queryImage =
+  //           "SELECT linkString FROM Media WHERE id_product = @idProduct AND isDefault = 1";
+  //         var imageResult = await database
+  //           .request()
+  //           .input("idProduct", resultProductSku.recordset[x].idProduct)
+  //           .query(queryImage);
 
-        image = imageResult.recordset[0].linkString;
-      } else {
-        var queryAttribute1 =
-          "SELECT * FROM Product_attribute1 WHERE id = @idAttribute1";
-        var resultAttribute1 = await database
-          .request()
-          .input("idAttribute1", resultProductSku.recordset[x].idAttribute1)
-          .query(queryAttribute1);
+  //         image = imageResult.recordset[0].linkString;
+  //       } else {
+  //         var queryAttribute1 =
+  //           "SELECT * FROM Product_attribute1 WHERE id = @idAttribute1";
+  //         var resultAttribute1 = await database
+  //           .request()
+  //           .input("idAttribute1", resultProductSku.recordset[x].idAttribute1)
+  //           .query(queryAttribute1);
 
-        attribute.push({
-          productSKUID: resultProductSku.recordset[x].id,
-          locAttributeName: resultAttribute1.recordset[0].name,
-          locAttributeDescription: resultAttribute1.recordset[0].name,
-          attributeValueID: resultAttribute1.recordset[0].id,
-          locAttributeValueName: resultAttribute1.recordset[0].decription,
-          locAttributeValueDescription:
-            resultAttribute1.recordset[0].decription,
-        });
+  //         attribute.push({
+  //           productSKUID: resultProductSku.recordset[x].id,
+  //           locAttributeName: resultAttribute1.recordset[0].name,
+  //           locAttributeDescription: resultAttribute1.recordset[0].name,
+  //           attributeValueID: resultAttribute1.recordset[0].id,
+  //           locAttributeValueName: resultAttribute1.recordset[0].decription,
+  //           locAttributeValueDescription:
+  //             resultAttribute1.recordset[0].decription,
+  //         });
 
-        var queryAttribute2 =
-          "SELECT * FROM Product_attribute2 WHERE id = @idAttribute2";
-        var resultAttribute2 = await database
-          .request()
-          .input("idAttribute2", resultProductSku.recordset[x].idAttribute2)
-          .query(queryAttribute2);
-        if (resultAttribute2.recordset.length !== 0) {
-          attribute.push({
-            productSKUID: resultProductSku.recordset[x].id,
-            locAttributeName: resultAttribute2.recordset[0].name,
-            locAttributeDescription: resultAttribute2.recordset[0].name,
-            attributeValueID: resultAttribute2.recordset[0].id,
-            locAttributeValueName: resultAttribute2.recordset[0].decription,
-            locAttributeValueDescription:
-              resultAttribute2.recordset[0].decription,
-          });
-        }
-        image = resultAttribute1.recordset[0].image;
-        var sku = {};
-        sku["productSKUID"] = resultProductSku.recordset[x].id;
-        sku["linkString"] = image;
-        sku["price"] = resultProductSku.recordset[x].price;
-        sku["priceBefore"] = resultProductSku.recordset[x].priceBefore;
-        sku["productVersionID"] = "1";
-        sku["attribute"] = attribute;
-        skus.push(sku);
-      }
-    }
-    response.status(201).json(skus);
-  } catch (error) {
-    console.log(error);
-    response.status(500).json({
-      error: "Internal Server Error",
-    });
-  }
+  //         var queryAttribute2 =
+  //           "SELECT * FROM Product_attribute2 WHERE id = @idAttribute2";
+  //         var resultAttribute2 = await database
+  //           .request()
+  //           .input("idAttribute2", resultProductSku.recordset[x].idAttribute2)
+  //           .query(queryAttribute2);
+  //         if (resultAttribute2.recordset.length !== 0) {
+  //           attribute.push({
+  //             productSKUID: resultProductSku.recordset[x].id,
+  //             locAttributeName: resultAttribute2.recordset[0].name,
+  //             locAttributeDescription: resultAttribute2.recordset[0].name,
+  //             attributeValueID: resultAttribute2.recordset[0].id,
+  //             locAttributeValueName: resultAttribute2.recordset[0].decription,
+  //             locAttributeValueDescription:
+  //               resultAttribute2.recordset[0].decription,
+  //           });
+  //         }
+  //         image = resultAttribute1.recordset[0].image;
+  //         var sku = {};
+  //         sku["productSKUID"] = resultProductSku.recordset[x].id;
+  //         sku["linkString"] = image;
+  //         sku["price"] = resultProductSku.recordset[x].price;
+  //         sku["priceBefore"] = resultProductSku.recordset[x].priceBefore;
+  //         sku["productVersionID"] = "1";
+  //         sku["attribute"] = attribute;
+  //         skus.push(sku);
+  //       }
+  //     }
+  //     response.status(201).json(skus);
+  //   } catch (error) {
+  //     console.log(error);
+  //     response.status(500).json({
+  //       error: "Internal Server Error",
+  //     });
+  //   }
+  response.status(201).json({
+    productVersionID: "1",
+    productID: "1",
+    productSKU: [
+      {
+        productSKUID: "1",
+        productVersionID: "1",
+        linkString: "https://picsum.photos/100",
+        price: "20000",
+        priceBefore: "0",
+        attribute: [
+          {
+            productSKUConditionID: "1",
+            productSKUID: "1",
+            attributeID: "1",
+            locAttributeName: "Phân Loại",
+            locAttributeDescription: "Phân Loại",
+            attributeValueID: "1",
+            locAttributeValueName: "Combo 10 Tuýp",
+            locAttributeValueDescription: "Combo 10 Tuýp",
+          },
+          {
+            productSKUConditionID: "2",
+            productSKUID: "1",
+            attributeID: "2",
+            locAttributeName: "Kích thước",
+            locAttributeDescription: "Kích thước",
+            attributeValueID: "5",
+            locAttributeValueName: "100ml",
+            locAttributeValueDescription: "100 ml",
+          },
+        ],
+      },
+      {
+        productSKUID: "2",
+        productVersionID: "1",
+        linkString: "https://picsum.photos/100",
+        price: "0",
+        priceBefore: "0",
+        attribute: [
+          {
+            productSKUConditionID: "3",
+            productSKUID: "2",
+            attributeID: "1",
+            locAttributeName: "Phân Loại",
+            locAttributeDescription: "Phân Loại",
+            attributeValueID: "2",
+            locAttributeValueName: "1 Thùng",
+            locAttributeValueDescription: "1 Thùng",
+          },
+          {
+            productSKUConditionID: "4",
+            productSKUID: "2",
+            attributeID: "2",
+            locAttributeName: "Kích thước",
+            locAttributeDescription: "Kích thước",
+            attributeValueID: "6",
+            locAttributeValueName: "300ml",
+            locAttributeValueDescription: "300 ml",
+          },
+        ],
+      },
+      {
+        productSKUID: "3",
+        productVersionID: "1",
+        linkString: "https://picsum.photos/100",
+        price: "0",
+        priceBefore: "0",
+        attribute: [
+          {
+            productSKUConditionID: "5",
+            productSKUID: "3",
+            attributeID: "1",
+            locAttributeName: "Phân Loại",
+            locAttributeDescription: "Phân Loại",
+            attributeValueID: "3",
+            locAttributeValueName: "1 Tuýp",
+            locAttributeValueDescription: "1 Tuýp",
+          },
+          {
+            productSKUConditionID: "6",
+            productSKUID: "3",
+            attributeID: "2",
+            locAttributeName: "Kích thước",
+            locAttributeDescription: "Kích thước",
+            attributeValueID: "6",
+            locAttributeValueName: "300ml",
+            locAttributeValueDescription: "300 ml",
+          },
+        ],
+      },
+    ],
+  });
 });
 // router.get("/get-list-by-category", async (request, response) => {
 //     try {
