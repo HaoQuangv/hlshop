@@ -1,28 +1,71 @@
-const express = require('express');
-const axios = require('axios')
+const express = require("express");
+const axios = require("axios");
+const router = express.Router();
 
-const router = express.Router()
+router.get("/get-list-by-city-id", async (req, res) => {
+  try {
+    const { cityID, search } = req.query;
+    const depth = 2;
+    const apiUrl = `https://provinces.open-api.vn/api/p/${cityID}?depth=${depth}`;
+    const response = await axios.get(apiUrl);
+    let transformedData;
+    let filteredDistricts = response.data.districts;
 
-router.get('/get-list-by-city-id', async (req, res) => {
-    try {
-      const { cityID } = req.query;
-      const depth = 2;
-      const apiUrl = `https://provinces.open-api.vn/api/p/${cityID}?depth=${depth}`;
-      const response = await axios.get(apiUrl);
-      const transformedData = {
-        districts: response.data.districts.map(district => {
-          return {
-            districtID: district.code.toString(),
-            name: district.name,
-            cityID: response.data.code.toString()
-          };
-        }),
-        total: response.data.districts.length
-      };
-      res.json(transformedData);
-    } catch (error) {
-      res.status(500).json({ error: 'Lỗi khi gọi API gốc' });
+    if (search) {
+      // Lọc dữ liệu dựa trên tìm kiếm
+      filteredDistricts = response.data.districts.filter((district) =>
+        district.name.toLowerCase().includes(search.toLowerCase())
+      );
     }
-  });
-  
-module.exports = router
+
+    transformedData = {
+      districts: filteredDistricts.map((district) => {
+        return {
+          districtID: district.code.toString(),
+          name: district.name,
+          cityID: response.data.code.toString(),
+        };
+      }),
+      total: filteredDistricts.length,
+    };
+
+    res.json(transformedData);
+  } catch (error) {
+    res.status(500).json({ error: "Lỗi khi gọi API gốc" });
+  }
+});
+
+module.exports = router;
+
+// router.get("/get-list-by-city-id", async (req, res) => {
+//   try {
+//     const { cityID, search } = req.query;
+//     const apiUrl = `https://vn-public-apis.fpo.vn/districts/getByProvince?provinceCode=${cityID}&limit=-1`;
+//     console.log(apiUrl);
+//     const response = await axios.get(apiUrl);
+//     let transformedData;
+//     let filteredDistricts = response.data.data.data;
+
+//     if (search) {
+//       // Lọc dữ liệu dựa trên tìm kiếm
+//       filteredDistricts = response.data.districts.filter((district) =>
+//         district.name.toLowerCase().includes(search.toLowerCase())
+//       );
+//     }
+
+//     transformedData = {
+//       districts: filteredDistricts.map((district) => {
+//         return {
+//           districtID: district.code,
+//           name: district.name,
+//           cityID: district.parent_code,
+//         };
+//       }),
+//       total: filteredDistricts.length,
+//     };
+
+//     res.json(transformedData);
+//   } catch (error) {
+//     res.status(500).json({ error: "Lỗi khi gọi API gốc" });
+//   }
+// });
