@@ -1336,9 +1336,6 @@
           "200": {
             "description": "OK"
           },
-          "400": {
-            "description": "Bad Request"
-          },
           "500": {
             "description": "Internal Server Error"
           }
@@ -1377,9 +1374,6 @@
           "200": {
             "description": "OK"
           },
-          "400": {
-            "description": "Bad Request"
-          },
           "500": {
             "description": "Internal Server Error"
           }
@@ -1404,9 +1398,6 @@
         "responses": {
           "200": {
             "description": "OK"
-          },
-          "400": {
-            "description": "Bad Request"
           },
           "500": {
             "description": "Internal Server Error"
@@ -1499,9 +1490,6 @@
           "200": {
             "description": "OK"
           },
-          "400": {
-            "description": "Bad Request"
-          },
           "500": {
             "description": "Internal Server Error"
           }
@@ -1519,6 +1507,9 @@
           }
         ],
         "responses": {
+          "200": {
+            "description": "OK"
+          },
           "201": {
             "description": "Created"
           },
@@ -1539,14 +1530,8 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "OK"
-          },
           "201": {
             "description": "Created"
-          },
-          "400": {
-            "description": "Bad Request"
           },
           "500": {
             "description": "Internal Server Error"
