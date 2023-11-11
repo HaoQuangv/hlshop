@@ -156,15 +156,16 @@ router.post("/delete", checkAuth, checkRole, async (request, response) => {
             .request()
             .input("userID", userResult.recordset[0].id)
             .query(queryAddressList);
-
-          const queryAddress =
-            "UPDATE AddressReceive SET isDefault = @isDefault, createdDate = @createdDate WHERE id = @addressID";
-          const addressResult = await database
-            .request()
-            .input("isDefault", 1)
-            .input("createdDate", new Date())
-            .input("addressID", resultAddressList.recordset[1].id)
-            .query(queryAddress);
+          if (queryAddressList.recordset.length > 1) {
+            const queryAddress =
+              "UPDATE AddressReceive SET isDefault = @isDefault, createdDate = @createdDate WHERE id = @addressID";
+            const addressResult = await database
+              .request()
+              .input("isDefault", 1)
+              .input("createdDate", new Date())
+              .input("addressID", resultAddressList.recordset[1].id)
+              .query(queryAddress);
+          }
         }
         const queryAddress = "DELETE FROM AddressReceive WHERE id = @addressID";
         const addressResult = await database
