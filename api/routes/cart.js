@@ -199,10 +199,10 @@ router.get(
             .input("id", productResult.recordset[0].id)
             .query(queryMedia);
           var image = {
-            mediaID: "13",
+            mediaID: mediaResult.recordset[0].id,
             linkString: mediaResult.recordset[0].linkString,
-            title: "test",
-            description: "test",
+            title: mediaResult.recordset[0].title,
+            description: mediaResult.recordset[0].description,
             objectRefType: 0,
             mediaType: 0,
             objectRefID: "1",
@@ -211,7 +211,7 @@ router.get(
         } else {
           if (productSkuResult.recordset[0].idAttributeValue1 !== null) {
             const queryAttributeValue =
-              "SELECT productAttributeID, valueName, id, linkString FROM ProductAttributeValue WHERE id = @idAttribute";
+              "SELECT productAttributeID, valueName, id FROM ProductAttributeValue WHERE id = @idAttribute";
             var attributeValueResult = await database
               .request()
               .input(
@@ -219,11 +219,18 @@ router.get(
                 productSkuResult.recordset[0].idAttributeValue1
               )
               .query(queryAttributeValue);
+
+            const queryMedia =
+              "SELECT * FROM Media WHERE productAttributeValueID = @id";
+            var mediaResult = await database
+              .request()
+              .input("id", productSkuResult.recordset[0].idAttributeValue1)
+              .query(queryMedia);
             var image = {
-              mediaID: "13",
-              linkString: attributeValueResult.recordset[0].linkString,
-              title: "test",
-              description: "test",
+              mediaID: mediaResult.recordset[0].id,
+              linkString: mediaResult.recordset[0].linkString,
+              title: mediaResult.recordset[0].title,
+              description: mediaResult.recordset[0].description,
               objectRefType: 0,
               mediaType: 0,
               objectRefID: "1",
