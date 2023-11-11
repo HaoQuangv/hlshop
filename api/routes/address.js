@@ -151,12 +151,13 @@ router.post("/delete", checkAuth, checkRole, async (request, response) => {
       if (userResult.recordset[0].id == result.recordset[0].id_user) {
         if (result.recordset[0].isDefault === 1) {
           const queryAddressList =
-            "SELECT id FROM AddressReceive WHERE id_user = @userID ORDER BY isDefault DESC, createdDate ASC";
+            "SELECT id FROM AddressReceive WHERE id_user = @userID ORDER BY isDefault DESC, createdDate DESC";
           const resultAddressList = await database
             .request()
             .input("userID", userResult.recordset[0].id)
             .query(queryAddressList);
-          if (queryAddressList.recordset.length > 1) {
+
+          if (resultAddressList.recordset.length > 1) {
             const queryAddress =
               "UPDATE AddressReceive SET isDefault = @isDefault, createdDate = @createdDate WHERE id = @addressID";
             const addressResult = await database
@@ -193,7 +194,6 @@ router.post("/delete", checkAuth, checkRole, async (request, response) => {
 
 router.post("/add-default", checkAuth, checkRole, async (request, response) => {
   try {
-    console.log("add-default");
     const receiverAddressID = request.body.receiverAddressID;
 
     const Addressquery = "SELECT * FROM AddressReceive WHERE id = @addressID";
@@ -207,13 +207,11 @@ router.post("/add-default", checkAuth, checkRole, async (request, response) => {
       .input("idAccount", request.userData.uuid)
       .query(queryUser);
     const queryAddressList =
-      "SELECT id FROM AddressReceive WHERE id_user = @userID AND isDefault = 1 ORDER BY isDefault DESC, createdDate ASC";
+      "SELECT id FROM AddressReceive WHERE id_user = @userID AND isDefault = 1 ORDER BY isDefault DESC, createdDate DESC";
     const resultAddressList = await database
       .request()
       .input("userID", userResult.recordset[0].id)
       .query(queryAddressList);
-    console.log(resultAddressList.recordset.length);
-    console.log(AddressResult.recordset.length);
 
     if (
       resultAddressList.recordset.length === 0 ||
@@ -224,19 +222,13 @@ router.post("/add-default", checkAuth, checkRole, async (request, response) => {
         message: "Receiver Address is not existing",
       });
     } else {
-      console.log(AddressResult.recordset[0].isDefault);
-
       if (AddressResult.recordset[0].isDefault === 1) {
         response.status(200).json({
           status: 200,
           message: "Add Receiver Address Default Success",
         });
       } else {
-        console.log(resultAddressList.recordset.length);
-
         for (var i = 0; i < resultAddressList.recordset.length; i++) {
-          console.log(resultAddressList.recordset[i].id, receiverAddressID);
-
           const queryUnDefault =
             "UPDATE AddressReceive SET isDefault = 0 WHERE id = @addressID";
           const resultUnDefault = await database
@@ -284,7 +276,7 @@ router.get("/get-list", checkAuth, checkRole, async (request, response) => {
       .query(queryUser);
 
     const query =
-      "SELECT id AS receiverAddressID, receiverContactName, receiverPhone, receiverEmail, addressLabel, id_user AS userID, isDefault, cityName, districtName, cityID, districtID, addressDetail FROM AddressReceive WHERE id_user = @userID ORDER BY isDefault DESC, createdDate ASC OFFSET @page ROWS FETCH NEXT @pageSize ROWS ONLY";
+      "SELECT id AS receiverAddressID, receiverContactName, receiverPhone, receiverEmail, addressLabel, id_user AS userID, isDefault, cityName, districtName, cityID, districtID, addressDetail FROM AddressReceive WHERE id_user = @userID ORDER BY isDefault DESC, createdDate DESC OFFSET @page ROWS FETCH NEXT @pageSize ROWS ONLY";
     const result = await database
       .request()
       .input("page", parseInt(offset))
