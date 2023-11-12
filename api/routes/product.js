@@ -889,145 +889,8 @@ router.get("/get-list-same-category", async (request, response) => {
 router.get("/get-product-attribute", async (request, response) => {
   try {
     const productID = request.query.productID;
-    let responseData = [];
-    let arrayAttributeValue1 = [];
-    let arrayAttributeValue2 = [];
-
-    const queryAttributeValue1ID =
-      "SELECT DISTINCT idAttributeValue1 FROM ProductSku WHERE idProduct = @productID";
-    const resultAttributeValue1ID = await database
-      .request()
-      .input("productID", productID)
-      .query(queryAttributeValue1ID);
-
-    const queryAttributeValue2ID =
-      "SELECT DISTINCT idAttributeValue2 FROM ProductSku WHERE idProduct = @productID";
-    const resultAttributeValue2ID = await database
-      .request()
-      .input("productID", productID)
-      .query(queryAttributeValue2ID);
-
-    if (resultAttributeValue1ID.recordset[0].idAttributeValue1 === null) {
-      response.status(200).json(responseData);
-    } else if (
-      resultAttributeValue1ID.recordset[0].idAttributeValue1 !== null &&
-      resultAttributeValue2ID.recordset[0].idAttributeValue2 === null
-    ) {
-      const queryAttribute1ID =
-        "SELECT productAttributeID FROM ProductAttributeValue WHERE id =@id";
-      const resultAttribute1ID = await database
-        .request()
-        .input("id", resultAttributeValue1ID.recordset[0].idAttributeValue1)
-        .query(queryAttribute1ID);
-
-      const queryAttribute1 =
-        "SELECT id AS attributeID, name AS locAttributeName, description FROM ProductAttribute WHERE id = @id";
-      const resultAttribute1 = await database
-        .request()
-        .input("id", resultAttribute1ID.recordset[0].productAttributeID)
-        .query(queryAttribute1);
-      const queryAttributeValue =
-        "SELECT id AS attributeValueID, valueName AS locAttributeValueName FROM ProductAttributeValue WHERE id = @id";
-
-      for (var i = 0; i < resultAttributeValue1ID.recordset.length; i++) {
-        var resultAttributeValue1 = await database
-          .request()
-          .input("id", resultAttributeValue1ID.recordset[i].idAttributeValue1)
-          .query(queryAttributeValue);
-        arrayAttributeValue1.push({
-          attributeValueID: resultAttributeValue1.recordset[0].attributeValueID,
-          locAttributeValueName:
-            resultAttributeValue1.recordset[0].locAttributeValueName,
-          locAttributeValueDescription:
-            resultAttributeValue1.recordset[0].locAttributeValueName,
-        });
-      }
-
-      responseData.push({
-        attributeID: resultAttribute1.recordset[0].attributeID,
-        locAttributeName: resultAttribute1.recordset[0].locAttributeName,
-        locAttributeDescription: resultAttribute1.recordset[0].locAttributeName,
-        attributeValue: arrayAttributeValue1,
-      });
-
-      response.status(201).json(responseData);
-    } else {
-      const queryAttribute1ID =
-        "SELECT productAttributeID FROM ProductAttributeValue WHERE id =@id";
-      const resultAttribute1ID = await database
-        .request()
-        .input("id", resultAttributeValue1ID.recordset[0].idAttributeValue1)
-        .query(queryAttribute1ID);
-
-      const queryAttribute2ID =
-        "SELECT productAttributeID FROM ProductAttributeValue WHERE id =@id";
-      const resultAttribute2ID = await database
-        .request()
-        .input("id", resultAttributeValue2ID.recordset[0].idAttributeValue2)
-        .query(queryAttribute2ID);
-
-      const queryAttribute1 =
-        "SELECT id AS attributeID, name AS locAttributeName, description FROM ProductAttribute WHERE id = @id";
-      const resultAttribute1 = await database
-        .request()
-        .input("id", resultAttribute1ID.recordset[0].productAttributeID)
-        .query(queryAttribute1);
-
-      const queryAttribute2 =
-        "SELECT id AS attributeID, name AS locAttributeName, description FROM ProductAttribute WHERE id = @id";
-      const resultAttribute2 = await database
-        .request()
-        .input("id", resultAttribute2ID.recordset[0].productAttributeID)
-        .query(queryAttribute2);
-
-      const queryAttributeValue =
-        "SELECT id AS attributeValueID, valueName AS locAttributeValueName FROM ProductAttributeValue WHERE id = @id";
-
-      for (var i = 0; i < resultAttributeValue1ID.recordset.length; i++) {
-        var resultAttributeValue1 = await database
-          .request()
-          .input("id", resultAttributeValue1ID.recordset[i].idAttributeValue1)
-          .query(queryAttributeValue);
-        arrayAttributeValue1.push({
-          attributeValueID: resultAttributeValue1.recordset[0].attributeValueID,
-          locAttributeValueName:
-            resultAttributeValue1.recordset[0].locAttributeValueName,
-          locAttributeValueDescription:
-            resultAttributeValue1.recordset[0].locAttributeValueName,
-        });
-      }
-
-      responseData.push({
-        attributeID: resultAttribute1.recordset[0].attributeID,
-        locAttributeName: resultAttribute1.recordset[0].locAttributeName,
-        locAttributeDescription: resultAttribute1.recordset[0].locAttributeName,
-        attributeValue: arrayAttributeValue1,
-      });
-
-      for (var i = 0; i < resultAttributeValue2ID.recordset.length; i++) {
-        var resultAttributeValue2 = await database
-          .request()
-          .input("id", resultAttributeValue2ID.recordset[i].idAttributeValue2)
-          .query(queryAttributeValue);
-
-        arrayAttributeValue2.push({
-          attributeValueID: resultAttributeValue2.recordset[0].attributeValueID,
-          locAttributeValueName:
-            resultAttributeValue2.recordset[0].locAttributeValueName,
-          locAttributeValueDescription:
-            resultAttributeValue2.recordset[0].locAttributeValueName,
-        });
-      }
-      responseData.push({
-        attributeID: resultAttribute2.recordset[0].attributeID,
-        locAttributeName: resultAttribute2.recordset[0].locAttributeName,
-        locAttributeDescription:
-          resultAttribute2.recordset[0].locAttributeDescription,
-        attributeValue: arrayAttributeValue2,
-      });
-
-      response.status(200).json(responseData);
-    }
+    const responseData = await getProductAttributes(productID);
+    response.status(200).json(responseData);
   } catch (error) {
     console.log(error);
     response.status(500).json({
@@ -1035,6 +898,58 @@ router.get("/get-product-attribute", async (request, response) => {
     });
   }
 });
+
+async function getProductAttributes(productID) {
+  const query = `
+    SELECT
+      pa.id AS attributeID,
+      pa.name AS locAttributeName,
+      pa.description AS locAttributeDescription,
+      pav.id AS attributeValueID,
+      pav.valueName AS locAttributeValueName,
+      pav.valueName AS locAttributeValueDescription
+    FROM ProductAttribute pa
+    LEFT JOIN ProductAttributeValue pav ON pa.id = pav.productAttributeID
+    WHERE pa.id_product = @productID
+    ORDER BY pa.type, pav.id;
+  `;
+
+  const result = await database
+    .request()
+    .input("productID", productID)
+    .query(query);
+
+  const responseData = [];
+
+  result.recordset.forEach((row) => {
+    const existingAttribute = responseData.find(
+      (attr) => attr.attributeID === row.attributeID
+    );
+
+    if (existingAttribute) {
+      existingAttribute.attributeValue.push({
+        attributeValueID: row.attributeValueID,
+        locAttributeValueName: row.locAttributeValueName,
+        locAttributeValueDescription: row.locAttributeValueDescription,
+      });
+    } else {
+      responseData.push({
+        attributeID: row.attributeID,
+        locAttributeName: row.locAttributeName,
+        locAttributeDescription: row.locAttributeDescription,
+        attributeValue: [
+          {
+            attributeValueID: row.attributeValueID,
+            locAttributeValueName: row.locAttributeValueName,
+            locAttributeValueDescription: row.locAttributeValueDescription,
+          },
+        ],
+      });
+    }
+  });
+
+  return responseData;
+}
 
 router.get("/get-product-sku-by-product-id", async (request, response) => {
   try {
