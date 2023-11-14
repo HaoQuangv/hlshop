@@ -102,7 +102,11 @@ router.post(
         .request()
         .input("idCart", idCart)
         .query(queryCart);
-
+      //         SELECT 1
+      // FROM Cart c
+      // JOIN [User] u ON c.id_user = u.id
+      // WHERE c.id = @idCart
+      //   AND u.id_account = @idAccount;
       if (
         cartUserResult.recordset.length === 0 ||
         cartUserResult.recordset[0].id_user !== userResult.recordset[0].id
