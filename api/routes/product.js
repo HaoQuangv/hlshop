@@ -22,7 +22,7 @@ const set = (key, value) => {
 };
 
 const get = async (request, response, next) => {
-  let key = request.route.path + JSON.stringify(request.query);
+  let key = request.route.path + JSON.stringify(request.query) + new Date();
   console.log("HLSHOP");
   console.log(key);
   let headersSent = false; // Cờ để kiểm tra xem header đã được gửi đi chưa
@@ -389,7 +389,7 @@ const medias = async (idProduct) => {
 
 const skus = async (idProduct) => {
   const queryProductSku =
-    "SELECT id AS productSKUID, price AS price, priceBefore AS priceBefore, idAttributeValue1 from ProductSku WHERE idProduct =  @idProduct";
+    "SELECT id AS productSKUID, price AS price, priceBefore AS priceBefore, idAttributeValue1, idAttributeValue2 from ProductSku WHERE idProduct =  @idProduct";
   const resultProductSku = await database
     .request()
     .input("idProduct", idProduct)
@@ -439,15 +439,13 @@ router.get("/get-detail", async (request, response) => {
 
         image = imageResult.recordset[0].linkString;
       } else {
-        //console.log(sku[x].idAttributeValue1);
-        var queryAttribute1 =
-          "SELECT * FROM ProductAttributeValue WHERE id = @idAttribute1";
-        var resultAttribute1 = await database
+        const queryMedia =
+          "SELECT linkString FROM Media WHERE productAttributeValueID = @productAttributeValueID";
+        const resultMedia = await database
           .request()
-          .input("idAttribute1", sku[x].idAttributeValue1)
-          .query(queryAttribute1);
-
-        image = resultAttribute1.recordset[0].linkString;
+          .input("productAttributeValueID", sku[x].idAttributeValue1)
+          .query(queryMedia);
+        image = resultMedia.recordset[0].linkString;
       }
       var sku1 = {};
       sku1["productSKUID"] = sku[x].productSKUID;
@@ -891,145 +889,8 @@ router.get("/get-list-same-category", async (request, response) => {
 router.get("/get-product-attribute", async (request, response) => {
   try {
     const productID = request.query.productID;
-    let responseData = [];
-    let arrayAttributeValue1 = [];
-    let arrayAttributeValue2 = [];
-
-    const queryAttributeValue1ID =
-      "SELECT DISTINCT idAttributeValue1 FROM ProductSku WHERE idProduct = @productID";
-    const resultAttributeValue1ID = await database
-      .request()
-      .input("productID", productID)
-      .query(queryAttributeValue1ID);
-
-    const queryAttributeValue2ID =
-      "SELECT DISTINCT idAttributeValue2 FROM ProductSku WHERE idProduct = @productID";
-    const resultAttributeValue2ID = await database
-      .request()
-      .input("productID", productID)
-      .query(queryAttributeValue2ID);
-
-    if (resultAttributeValue1ID.recordset[0].idAttributeValue1 === null) {
-      response.status(200).json(responseData);
-    } else if (
-      resultAttributeValue1ID.recordset[0].idAttributeValue1 !== null &&
-      resultAttributeValue2ID.recordset[0].idAttributeValue2 === null
-    ) {
-      const queryAttribute1ID =
-        "SELECT productAttributeID FROM ProductAttributeValue WHERE id =@id";
-      const resultAttribute1ID = await database
-        .request()
-        .input("id", resultAttributeValue1ID.recordset[0].idAttributeValue1)
-        .query(queryAttribute1ID);
-
-      const queryAttribute1 =
-        "SELECT id AS attributeID, name AS locAttributeName, description FROM ProductAttribute WHERE id = @id";
-      const resultAttribute1 = await database
-        .request()
-        .input("id", resultAttribute1ID.recordset[0].productAttributeID)
-        .query(queryAttribute1);
-      const queryAttributeValue =
-        "SELECT id AS attributeValueID, valueName AS locAttributeValueName FROM ProductAttributeValue WHERE id = @id";
-
-      for (var i = 0; i < resultAttributeValue1ID.recordset.length; i++) {
-        var resultAttributeValue1 = await database
-          .request()
-          .input("id", resultAttributeValue1ID.recordset[i].idAttributeValue1)
-          .query(queryAttributeValue);
-        arrayAttributeValue1.push({
-          attributeValueID: resultAttributeValue1.recordset[0].attributeValueID,
-          locAttributeValueName:
-            resultAttributeValue1.recordset[0].locAttributeValueName,
-          locAttributeValueDescription:
-            resultAttributeValue1.recordset[0].locAttributeValueName,
-        });
-      }
-
-      responseData.push({
-        attributeID: resultAttribute1.recordset[0].attributeID,
-        locAttributeName: resultAttribute1.recordset[0].locAttributeName,
-        locAttributeDescription: resultAttribute1.recordset[0].locAttributeName,
-        attributeValue: arrayAttributeValue1,
-      });
-
-      response.status(201).json(responseData);
-    } else {
-      const queryAttribute1ID =
-        "SELECT productAttributeID FROM ProductAttributeValue WHERE id =@id";
-      const resultAttribute1ID = await database
-        .request()
-        .input("id", resultAttributeValue1ID.recordset[0].idAttributeValue1)
-        .query(queryAttribute1ID);
-
-      const queryAttribute2ID =
-        "SELECT productAttributeID FROM ProductAttributeValue WHERE id =@id";
-      const resultAttribute2ID = await database
-        .request()
-        .input("id", resultAttributeValue2ID.recordset[0].idAttributeValue2)
-        .query(queryAttribute2ID);
-
-      const queryAttribute1 =
-        "SELECT id AS attributeID, name AS locAttributeName, description FROM ProductAttribute WHERE id = @id";
-      const resultAttribute1 = await database
-        .request()
-        .input("id", resultAttribute1ID.recordset[0].productAttributeID)
-        .query(queryAttribute1);
-
-      const queryAttribute2 =
-        "SELECT id AS attributeID, name AS locAttributeName, description FROM ProductAttribute WHERE id = @id";
-      const resultAttribute2 = await database
-        .request()
-        .input("id", resultAttribute2ID.recordset[0].productAttributeID)
-        .query(queryAttribute2);
-
-      const queryAttributeValue =
-        "SELECT id AS attributeValueID, valueName AS locAttributeValueName FROM ProductAttributeValue WHERE id = @id";
-
-      for (var i = 0; i < resultAttributeValue1ID.recordset.length; i++) {
-        var resultAttributeValue1 = await database
-          .request()
-          .input("id", resultAttributeValue1ID.recordset[i].idAttributeValue1)
-          .query(queryAttributeValue);
-        arrayAttributeValue1.push({
-          attributeValueID: resultAttributeValue1.recordset[0].attributeValueID,
-          locAttributeValueName:
-            resultAttributeValue1.recordset[0].locAttributeValueName,
-          locAttributeValueDescription:
-            resultAttributeValue1.recordset[0].locAttributeValueName,
-        });
-      }
-
-      responseData.push({
-        attributeID: resultAttribute1.recordset[0].attributeID,
-        locAttributeName: resultAttribute1.recordset[0].locAttributeName,
-        locAttributeDescription: resultAttribute1.recordset[0].locAttributeName,
-        attributeValue: arrayAttributeValue1,
-      });
-
-      for (var i = 0; i < resultAttributeValue2ID.recordset.length; i++) {
-        var resultAttributeValue2 = await database
-          .request()
-          .input("id", resultAttributeValue2ID.recordset[i].idAttributeValue2)
-          .query(queryAttributeValue);
-
-        arrayAttributeValue2.push({
-          attributeValueID: resultAttributeValue2.recordset[0].attributeValueID,
-          locAttributeValueName:
-            resultAttributeValue2.recordset[0].locAttributeValueName,
-          locAttributeValueDescription:
-            resultAttributeValue2.recordset[0].locAttributeValueName,
-        });
-      }
-      responseData.push({
-        attributeID: resultAttribute2.recordset[0].attributeID,
-        locAttributeName: resultAttribute2.recordset[0].locAttributeName,
-        locAttributeDescription:
-          resultAttribute2.recordset[0].locAttributeDescription,
-        attributeValue: arrayAttributeValue2,
-      });
-
-      response.status(200).json(responseData);
-    }
+    const responseData = await getProductAttributes(productID);
+    response.status(200).json(responseData);
   } catch (error) {
     console.log(error);
     response.status(500).json({
@@ -1038,126 +899,62 @@ router.get("/get-product-attribute", async (request, response) => {
   }
 });
 
+async function getProductAttributes(productID) {
+  const query = `
+    SELECT
+      pa.id AS attributeID,
+      pa.name AS locAttributeName,
+      pa.description AS locAttributeDescription,
+      pav.id AS attributeValueID,
+      pav.valueName AS locAttributeValueName,
+      pav.valueName AS locAttributeValueDescription
+    FROM ProductAttribute pa
+    LEFT JOIN ProductAttributeValue pav ON pa.id = pav.productAttributeID
+    WHERE pa.id_product = @productID
+    ORDER BY pa.type, pav.id;
+  `;
+
+  const result = await database
+    .request()
+    .input("productID", productID)
+    .query(query);
+
+  const responseData = [];
+
+  result.recordset.forEach((row) => {
+    const existingAttribute = responseData.find(
+      (attr) => attr.attributeID === row.attributeID
+    );
+
+    if (existingAttribute) {
+      existingAttribute.attributeValue.push({
+        attributeValueID: row.attributeValueID,
+        locAttributeValueName: row.locAttributeValueName,
+        locAttributeValueDescription: row.locAttributeValueDescription,
+      });
+    } else {
+      responseData.push({
+        attributeID: row.attributeID,
+        locAttributeName: row.locAttributeName,
+        locAttributeDescription: row.locAttributeDescription,
+        attributeValue: [
+          {
+            attributeValueID: row.attributeValueID,
+            locAttributeValueName: row.locAttributeValueName,
+            locAttributeValueDescription: row.locAttributeValueDescription,
+          },
+        ],
+      });
+    }
+  });
+
+  return responseData;
+}
+
 router.get("/get-product-sku-by-product-id", async (request, response) => {
   try {
     const productID = request.query.productID;
-    var skuss = [];
-    const sku = await skus(productID);
-    console.log(sku.length);
-    for (var x = 0; x < sku.length; x++) {
-      var image = "";
-      var attribute = [];
-      if (sku[x].idAttributeValue1 === null) {
-        console.log(962);
-        var queryImage =
-          "SELECT linkString FROM Media WHERE id_product = @idProduct AND isDefault = 1";
-        var imageResult = await database
-          .request()
-          .input("idProduct", productID)
-          .query(queryImage);
-
-        image = imageResult.recordset[0].linkString;
-
-        var newSku = {};
-        newSku["productSKUID"] = sku[x].productSKUID;
-        newSku["linkString"] = image;
-        newSku["price"] = sku[x].price;
-        newSku["priceBefore"] = sku[x].priceBefore;
-        newSku["attribute"] = [];
-        skuss.push(newSku);
-      } else {
-        console.log(978);
-        var queryAttributeValue1ID =
-          "SELECT DISTINCT idAttributeValue1 FROM ProductSku WHERE idProduct = @productID AND id = @id";
-        var resultAttributeValue1ID = await database
-          .request()
-          .input("productID", productID)
-          .input("id", sku[x].productSKUID)
-          .query(queryAttributeValue1ID);
-
-        var queryAttribute1ID =
-          "SELECT productAttributeID FROM ProductAttributeValue WHERE id =@id";
-        var resultAttribute1ID = await database
-          .request()
-          .input("id", resultAttributeValue1ID.recordset[0].idAttributeValue1)
-          .query(queryAttribute1ID);
-
-        var queryAttribute1 =
-          "SELECT id AS attributeID, name AS locAttributeName, description FROM ProductAttribute WHERE id = @id";
-        var resultAttribute1 = await database
-          .request()
-          .input("id", resultAttribute1ID.recordset[0].productAttributeID)
-          .query(queryAttribute1);
-
-        var queryAttributeValue =
-          "SELECT id AS attributeValueID, valueName AS locAttributeValueName, linkString FROM ProductAttributeValue WHERE id = @id";
-        var resultAttributeValue1 = await database
-          .request()
-          .input("id", resultAttributeValue1ID.recordset[0].idAttributeValue1)
-          .query(queryAttributeValue);
-        attribute.push({
-          productSKUID: sku[x].productSKUID,
-          attributeID: resultAttribute1.recordset[0].attributeID,
-          locAttributeName: resultAttribute1.recordset[0].locAttributeName,
-          locAttributeDescription: resultAttribute1.recordset[0].description,
-          attributeValueID: resultAttributeValue1.recordset[0].attributeValueID,
-          locAttributeValueName:
-            resultAttributeValue1.recordset[0].locAttributeValueName,
-          locAttributeValueDescription:
-            resultAttributeValue1.recordset[0].locAttributeValueName,
-        });
-
-        var queryAttributeValue2ID =
-          "SELECT DISTINCT idAttributeValue2 FROM ProductSku WHERE idProduct = @productID AND id = @id";
-        var resultAttributeValue2ID = await database
-          .request()
-          .input("productID", productID)
-          .input("id", sku[x].productSKUID)
-          .query(queryAttributeValue2ID);
-
-        if (resultAttributeValue2ID.recordset[0].idAttributeValue2 !== null) {
-          var queryAttribute2ID =
-            "SELECT productAttributeID FROM ProductAttributeValue WHERE id =@id";
-          var resultAttribute2ID = await database
-            .request()
-            .input("id", resultAttributeValue2ID.recordset[0].idAttributeValue2)
-            .query(queryAttribute2ID);
-
-          var queryAttribute2 =
-            "SELECT id AS attributeID, name AS locAttributeName, description FROM ProductAttribute WHERE id = @id";
-          var resultAttribute2 = await database
-            .request()
-            .input("id", resultAttribute2ID.recordset[0].productAttributeID)
-            .query(queryAttribute2);
-
-          // var queryAttributeValue = "SELECT id AS attributeValueID, valueName AS locAttributeValueName FROM ProductAttributeValue WHERE id = @id"
-          var resultAttributeValue2 = await database
-            .request()
-            .input("id", resultAttributeValue2ID.recordset[0].idAttributeValue2)
-            .query(queryAttributeValue);
-          attribute.push({
-            productSKUID: sku[x].productSKUID,
-            attributeID: resultAttribute2.recordset[0].attributeID,
-            locAttributeName: resultAttribute2.recordset[0].locAttributeName,
-            locAttributeDescription: resultAttribute2.recordset[0].description,
-            attributeValueID:
-              resultAttributeValue2.recordset[0].attributeValueID,
-            locAttributeValueName:
-              resultAttributeValue2.recordset[0].locAttributeValueName,
-            locAttributeValueDescription:
-              resultAttributeValue2.recordset[0].locAttributeValueName,
-          });
-        }
-        image = resultAttributeValue1.recordset[0].linkString;
-        var newSku = {};
-        newSku["productSKUID"] = sku[x].productSKUID;
-        newSku["linkString"] = image;
-        newSku["price"] = sku[x].price;
-        newSku["priceBefore"] = sku[x].priceBefore;
-        newSku["attribute"] = attribute;
-        skuss.push(newSku);
-      }
-    }
+    const skuss = await processSkus(productID);
     response.status(200).json({
       productID: productID,
       productSKU: skuss,
@@ -1169,86 +966,98 @@ router.get("/get-product-sku-by-product-id", async (request, response) => {
     });
   }
 });
-// router.get("/get-list-by-category", async (request, response) => {
-//     try {
-//         var offset = request.query.offset;
-//         var limit = request.query.limit;
 
-//         if (offset == null || offset < 1) {
-//             offset = 1;
-//         }
+async function processSkus(productID) {
+  const skuss = [];
+  const sku = await skus(productID);
 
-//         if (limit == null) {
-//             limit = 10;
-//         }
+  for (const s of sku) {
+    const image = await getImage(productID, s);
+    const attributes = await getAttributes(productID, s);
 
-//         offset = (offset - 1) * limit;
-//         var idCategory = request.query.idCategory;
+    const newSku = {
+      productSKUID: s.productSKUID,
+      linkString: image,
+      price: s.price,
+      priceBefore: s.priceBefore,
+      attribute: attributes,
+    };
 
-//         const queryProduct = "SELECT * FROM Product WHERE id_Category = @idCategory ORDER BY name OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY"
-//         const resultProduct = await database.request()
-//             .input('offset', parseInt(offset))
-//             .input('limit', parseInt(limit))
-//             .input('idCategory', idCategory)
-//             .query(queryProduct)
+    skuss.push(newSku);
+  }
 
-//         var products = []
+  return skuss;
+}
 
-//         for (var i = 0; i < resultProduct.recordset.length; i++) {
-//             var medias = [];
-//             var skus = [];
+async function getImage(productID, sku) {
+  if (sku.idAttributeValue1 === null) {
+    const queryImage =
+      "SELECT linkString FROM Media WHERE id_product = @idProduct AND isDefault = 1";
+    const imageResult = await database
+      .request()
+      .input("idProduct", productID)
+      .query(queryImage);
+    return imageResult.recordset[0].linkString;
+  } else {
+    const queryImage =
+      "SELECT linkString FROM Media WHERE productAttributeValueID = @productAttributeValueID";
+    const imageResult = await database
+      .request()
+      .input("productAttributeValueID", sku.idAttributeValue1)
+      .query(queryImage);
+    return imageResult.recordset[0].linkString;
+  }
+}
 
-//             var queryMedia = "SELECT * FROM Media WHERE id_product = @idProduct";
-//             var resultMedia = await database.request()
-//                 .input('idProduct', resultProduct.recordset[0].id)
-//                 .query(queryMedia);
+async function getAttributes(productID, sku) {
+  const attributes = [];
 
-//             var queryProductSku = "SELECT* from Product_sku WHERE idProduct =  @idProduct"
-//             var resultProductSku = await database.request()
-//                 .input('idProduct', resultProduct.recordset[0].id)
-//                 .query(queryProductSku)
+  if (sku.idAttributeValue1 !== null) {
+    const attribute1 = await processAttribute(
+      productID,
+      sku.idAttributeValue1,
+      sku
+    );
+    attributes.push(attribute1);
 
-//             for (var x = 0; x < resultMedia.recordset.length; x++) {
-//                 var media = {};
-//                 media['mediaID'] = resultMedia.recordset[x].id;
-//                 media['linkString'] = resultMedia.recordset[x].linkString;
-//                 media['title'] = resultMedia.recordset[x].title;
-//                 media['description'] = resultMedia.recordset[x].description;
+    if (sku.idAttributeValue2 !== null) {
+      const attribute2 = await processAttribute(
+        productID,
+        sku.idAttributeValue2,
+        sku
+      );
+      attributes.push(attribute2);
+    }
+  }
 
-//                 medias.push(media);
-//             }
+  return attributes;
+}
 
-//             for (var y = 0; y < resultProductSku.recordset.length; y++) {
-//                 var sku = {};
-//                 sku['skuID'] = resultProductSku.recordset[y].id;
-//                 sku['quantity'] = resultProductSku.recordset[y].quantity;
-//                 sku['price'] = resultProductSku.recordset[y].price;
-//                 sku['idAttribute1'] = resultProductSku.recordset[y].idAttribute1;
-//                 sku['idAttribute2'] = resultProductSku.recordset[y].idAttribute2;
+async function processAttribute(productID, attributeValueID, sku) {
+  const queryAttributeValue =
+    "SELECT * FROM ProductAttributeValue WHERE id = @id";
+  const resultAttributeValue = await database
+    .request()
+    .input("id", attributeValueID)
+    .query(queryAttributeValue);
 
-//                 skus.push(sku);
-//             }
+  const queryattributes = "SELECT * FROM ProductAttribute WHERE id = @id ";
+  const attributesResult = await database
+    .request()
+    .input("id", resultAttributeValue.recordset[0].productAttributeID)
+    .query(queryattributes);
 
-//             var product = {
-//                 "productID": resultProduct.recordset[i].id,
-//                 "productName": resultProduct.recordset[i].name,
-//                 "productDescription": resultProduct.recordset[i].decription,
-//                 "medias": medias,
-//                 "productSKU": skus
-//             }
-
-//             products.push(product);
-//         }
-
-//         response.status(200).json({
-//             "result": products
-//         })
-//     } catch (error) {
-//         console.log(error);
-//         response.status(500).json({
-//             "error": 'Internal Server Error'
-//         })
-//     }
-// })
+  var attribute = {
+    productSKUConditionID: sku.productSKUID,
+    productSKUID: sku.productSKUID,
+    attributeID: attributesResult.recordset[0].id,
+    locAttributeName: attributesResult.recordset[0].name,
+    locAttributeDescription: attributesResult.recordset[0].decription,
+    attributeValueID: resultAttributeValue.recordset[0].id,
+    locAttributeValueName: resultAttributeValue.recordset[0].valueName,
+    locAttributeValueDescription: resultAttributeValue.recordset[0].valueName,
+  };
+  return attribute;
+}
 
 module.exports = router;
