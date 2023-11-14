@@ -9,52 +9,39 @@ router.post("/add-cart", checkAuth, checkRole, async (request, response) => {
   try {
     const idProductSku = request.body.productSKUID;
     const quantity = Number(request.body.quantity);
-
+    const createdDate = new Date();
     // Kiểm tra dữ liệu đầu vào
     if (!idProductSku || !quantity || quantity <= 0) {
       return response.status(400).json({
         error: "Invalid input data",
       });
     }
+
     const queryUser = "SELECT id FROM [User] WHERE id_account = @idAccount";
     const userResult = await database
       .request()
       .input("idAccount", request.userData.uuid)
       .query(queryUser);
 
-    // Kiểm tra xem id_user đã có trong giỏ hàng chưa
-    const queryCheckCart =
-      "SELECT id, quantity FROM Cart WHERE id_user = @idUser AND idProductSku = @idProductSku";
+    // Sử dụng MERGE để thêm mới hoặc cập nhật giỏ hàng
+    const queryMergeCart = `
+      MERGE INTO Cart AS target
+      USING (VALUES (@idUser, @idProductSku, @quantity, @createdDate)) AS source (id_user, idProductSku, quantity, createdDate)
+      ON target.id_user = source.id_user AND target.idProductSku = source.idProductSku
+      WHEN MATCHED THEN
+        UPDATE SET target.quantity = target.quantity + source.quantity, target.createdDate = source.createdDate
+      WHEN NOT MATCHED THEN
+        INSERT (id_user, idProductSku, quantity, createdDate)
+        VALUES (source.id_user, source.idProductSku, source.quantity, source.createdDate);
+    `;
 
-    const checkCartResult = await database
+    await database
       .request()
       .input("idUser", userResult.recordset[0].id)
       .input("idProductSku", idProductSku)
-      .query(queryCheckCart);
-
-    if (checkCartResult.recordset.length !== 0) {
-      // Nếu đã có, cập nhật số lượng
-      const updatedQuantity = checkCartResult.recordset[0].quantity + quantity;
-      const queryUpdateCart =
-        "UPDATE Cart SET quantity = @updatedQuantity WHERE id = @idCart";
-
-      await database
-        .request()
-        .input("updatedQuantity", updatedQuantity)
-        .input("idCart", checkCartResult.recordset[0].id)
-        .query(queryUpdateCart);
-    } else {
-      // Nếu chưa có, thêm mới
-      const queryCart =
-        "INSERT INTO Cart(id_user, quantity, idProductSku) VALUES (@idUser, @quantity, @idProductSku)";
-
-      await database
-        .request()
-        .input("idUser", userResult.recordset[0].id)
-        .input("quantity", quantity)
-        .input("idProductSku", idProductSku)
-        .query(queryCart);
-    }
+      .input("quantity", quantity)
+      .input("createdDate", createdDate)
+      .query(queryMergeCart);
 
     response.status(200).json({
       status: 200,
@@ -82,32 +69,33 @@ router.post(
     try {
       const idCart = request.body.cartID;
       const quantity = Number(request.body.quantity);
+      const createdDate = new Date();
 
       // Kiểm tra dữ liệu đầu vào
-      if (!idCart || quantity === undefined || quantity === null) {
+      if (
+        !idCart ||
+        typeof quantity !== "number" ||
+        !Number.isInteger(quantity)
+      ) {
         return response.status(400).json({
           error: "Invalid input data",
         });
       }
 
-      // Kiểm tra xem id_user của người dùng có khớp với id_user trong Cart hay không
-      const queryUser = "SELECT id FROM [User] WHERE id_account = @idAccount";
-      const userResult = await database
+      // Kiểm tra quyền truy cập
+      const queryAccessCheck = `
+      SELECT 1
+      FROM [User] AS u
+      INNER JOIN Cart AS c ON u.id = c.id_user
+      WHERE u.id_account = @idAccount AND c.id = @idCart;
+    `;
+      const accessCheckResult = await database
         .request()
         .input("idAccount", request.userData.uuid)
-        .query(queryUser);
-
-      const queryCart = "SELECT id_user FROM Cart WHERE id = @idCart";
-      const cartUserResult = await database
-        .request()
         .input("idCart", idCart)
-        .query(queryCart);
+        .query(queryAccessCheck);
 
-      if (
-        cartUserResult.recordset.length === 0 ||
-        cartUserResult.recordset[0].id_user !== userResult.recordset[0].id
-      ) {
-        // Nếu không khớp id_user, trả về lỗi
+      if (accessCheckResult.recordset.length === 0) {
         return response.status(403).json({
           error: "Permission denied",
         });
@@ -127,11 +115,12 @@ router.post(
       } else {
         // Cập nhật quantity bằng cách cộng thêm vào giá trị hiện tại
         const updateQuery =
-          "UPDATE Cart SET quantity = @quantity WHERE id = @idCart";
-        const cartResult = await database
+          "UPDATE Cart SET quantity = @quantity, createdDate = @createdDate WHERE id = @idCart";
+        await database
           .request()
           .input("quantity", quantity)
           .input("idCart", idCart)
+          .input("createdDate", createdDate)
           .query(updateQuery);
 
         response.status(200).json({
@@ -176,10 +165,11 @@ async function getCartList(idAccount) {
   const query = `
     SELECT Cart.*, ProductSku.id AS productSKUID, ProductSku.price AS price, ProductSku.idAttributeValue1 AS idAttributeValue1, ProductSku.idAttributeValue2 AS idAttributeValue2, Product.id AS productID, Product.name AS productName, Product.decription AS productDescription
     FROM [User]
-    LEFT JOIN Cart ON [User].id = Cart.id_user
-    LEFT JOIN ProductSku ON Cart.idProductSku = ProductSku.id
-    LEFT JOIN Product ON ProductSku.idProduct = Product.id
+    JOIN Cart ON [User].id = Cart.id_user
+    JOIN ProductSku ON Cart.idProductSku = ProductSku.id
+    JOIN Product ON ProductSku.idProduct = Product.id
     WHERE [User].id_account = @idAccount
+    ORDER BY Cart.createdDate DESC;
   `;
 
   const result = await database
