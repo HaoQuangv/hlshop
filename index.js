@@ -14,7 +14,8 @@ const addressRouter = require('./api/routes/address');
 const productRouter = require('./api/routes/product');
 const cartRouter = require('./api/routes/cart');
 const cityRouter = require('./api/routes/city')
-const districtRouter = require('./api/routes/district')
+const districtRouter = require('./api/routes/district');
+const orderRouter = require('./api/routes/order');
 
 const port = 80;
 
@@ -31,6 +32,7 @@ app.use('/api/hlshop/product', productRouter);
 app.use('/api/hlshop/cart', cartRouter);
 app.use('/api/hlshop/cities', cityRouter);
 app.use('/api/hlshop/district', districtRouter);
+app.use('/api/hlshop/order', orderRouter);
 
 // app.get('/', function (request, response) {
 //     response.send("Hello word, this is group 08")

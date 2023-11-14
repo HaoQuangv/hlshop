@@ -1554,9 +1554,6 @@
             "schema": {
               "type": "object",
               "properties": {
-                "idProduct": {
-                  "example": "any"
-                },
                 "idProductSku": {
                   "example": "any"
                 },
