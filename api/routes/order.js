@@ -30,7 +30,7 @@ router.post("/create", checkAuth, checkRole, async (request, response) => {
 
         const orderCode = generateOrderCode(orderID, DateNow);
 
-        await mapAddressOrder(receiverAddressID, orderID, transaction, idUser);
+        await mapAddressOrder(receiverAddressID, orderID, idUser, transaction);
 
         let totalPrice = 0;
         for (const cart of cartList) {
@@ -68,6 +68,7 @@ router.post("/create", checkAuth, checkRole, async (request, response) => {
         await transaction.rollback();
         throw err;
       });
+    return {};
   } catch (error) {
     if (error.code === "EREQUEST") {
       return response.status(500).json({
@@ -171,36 +172,40 @@ async function mapCarttoOrderItem(cartID, orderID, userID, transaction) {
       const quantity = result.recordset[0].quantity;
       return { price, quantity };
     } else {
-      throw "Invalid cartID1";
+      throw "Not Exist cartID";
     }
   } catch (error) {
-    throw "Invalid cartID";
+    throw error;
   }
 }
 
 async function mapAddressOrder(
   receiverAddressID,
   orderID,
-  transaction,
-  idUser
+  userID,
+  transaction
 ) {
   try {
     const query = `
       INSERT INTO AddressOrder (receiverContactName, receiverPhone, receiverEmail, addressLabel, cityName, districtName, addressDetail, orderId)
-      OUTPUT INSERTED.orderId
+      OUTPUT INSERTED.receiverContactName
       SELECT receiverContactName, receiverPhone, receiverEmail, addressLabel, cityName, districtName, addressDetail, @orderId AS orderId
-      FROM AddressReceive ar
-      WHERE id_user = @idUser AND id = @receiverAddressID;
+      FROM AddressReceive
+      WHERE id = @receiverAddressID AND id_user = @userID;
     `;
 
-    await transaction
+    const result = await transaction
       .request()
       .input("orderId", orderID)
-      .input("idUser", idUser)
       .input("receiverAddressID", receiverAddressID)
+      .input("userID", userID)
       .query(query);
+
+    if (result.recordset.length === 0) {
+      throw "Not Exist receiverAddressID";
+    }
   } catch (error) {
-    throw "Invalid receiverAddressID";
+    throw error;
   }
 }
 
@@ -251,8 +256,6 @@ function generateOrderCode(orderID, DateNow) {
     const orderIDSuffix = String(orderID).slice(-4);
 
     const orderCode = `HL${year}${month}${day}-${orderIDSuffix}`;
-    console.log("orderCode: ", orderCode);
-    console.log("oderID: ", orderID);
     return orderCode;
   } catch (error) {
     throw "Error in generateOrderCode";
@@ -271,7 +274,7 @@ router.get("/get-list", checkAuth, checkRole, async (request, response) => {
     }
 
     response.status(500).json({
-      error: "Internal Server Error",
+      error: error,
     });
   }
 });
