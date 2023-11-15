@@ -6,6 +6,7 @@ const database = require("../../config");
 
 const checkAuth = require("../../middleware/check_auth");
 const checkRole = require("../../middleware/check_role_user");
+const e = require("express");
 
 router.post("/create", checkAuth, checkRole, async (request, response) => {
   let transaction = new sql.Transaction(database);
@@ -41,7 +42,7 @@ router.post("/create", checkAuth, checkRole, async (request, response) => {
           );
           totalPrice += price * quantity;
           //xoa cart
-          await deleteCartItem(cart.cartID, transaction);
+          await deleteCartItem(cart.cartID, idUser, transaction);
         }
 
         //cap nhat orderCode, orderStatus = 0
@@ -65,7 +66,6 @@ router.post("/create", checkAuth, checkRole, async (request, response) => {
       })
       .catch(async (err) => {
         await transaction.rollback();
-
         throw err;
       });
   } catch (error) {
@@ -97,7 +97,6 @@ async function deleteCartItem(cartID, userID, transaction) {
       .input("userID", userID)
       .query(query);
   } catch (error) {
-    console.error("error deleteCartItem");
     throw "Error in deleteCartItem";
   }
 }
@@ -115,7 +114,6 @@ async function createOrderTracking(orderID, transaction, DateNow) {
       .input("createdDate", DateNow)
       .query(query);
   } catch (error) {
-    console.error("error createOrderTracking");
     throw "Error in createOrderTracking";
   }
 }
@@ -139,7 +137,6 @@ async function insertOderCodeAndOrderTotal(
       .input("orderTotal", orderTotal)
       .query(query);
   } catch (error) {
-    console.error("error insertOderCodeAndOrderTotal", error);
     throw "Error in insertOderCodeAndOrderTotal";
   }
 }
@@ -166,10 +163,9 @@ async function mapCarttoOrderItem(cartID, orderID, userID, transaction) {
     const result = await transaction
       .request()
       .input("orderId", orderID)
-      .input("idUser", idUser)
       .input("cartID", cartID)
+      .input("userID", userID)
       .query(query);
-
     if (result.recordset.length > 0) {
       const price = result.recordset[0].price;
       const quantity = result.recordset[0].quantity;
@@ -192,19 +188,18 @@ async function mapAddressOrder(
     const query = `
       INSERT INTO AddressOrder (receiverContactName, receiverPhone, receiverEmail, addressLabel, cityName, districtName, addressDetail, orderId)
       OUTPUT INSERTED.orderId
-      SELECT ar.receiverContactName, ar.receiverPhone, ar.receiverEmail, ar.addressLabel, ar.cityName, ar.districtName, ar.addressDetail, @orderId AS orderId,
+      SELECT receiverContactName, receiverPhone, receiverEmail, addressLabel, cityName, districtName, addressDetail, @orderId AS orderId
       FROM AddressReceive ar
-      WHERE ar.id_user = @idUser AND ar.id = @receiverAddressID;
+      WHERE id_user = @idUser AND id = @receiverAddressID;
     `;
 
-    const result = await transaction
+    await transaction
       .request()
       .input("orderId", orderID)
       .input("idUser", idUser)
       .input("receiverAddressID", receiverAddressID)
       .query(query);
   } catch (error) {
-    console.error("error mapAddressOrder");
     throw "Invalid receiverAddressID";
   }
 }
