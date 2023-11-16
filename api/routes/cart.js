@@ -163,7 +163,7 @@ router.get(
 
 async function getCartList(idAccount) {
   const query = `
-    SELECT Cart.*, ProductSku.id AS productSKUID, ProductSku.price AS price, ProductSku.idAttributeValue1 AS idAttributeValue1, ProductSku.idAttributeValue2 AS idAttributeValue2, Product.id AS productID, Product.name AS productName, Product.decription AS productDescription
+    SELECT Cart.*, ProductSku.id AS productSKUID, ProductSku.price AS price, ProductSku.idAttributeValue1 AS idAttributeValue1, ProductSku.idAttributeValue2 AS idAttributeValue2, Product.id AS productID, Product.name AS productName, Product.description AS productDescription
     FROM [User]
     JOIN Cart ON [User].id = Cart.id_user
     JOIN ProductSku ON Cart.idProductSku = ProductSku.id

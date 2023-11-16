@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-
+const db_action = require("../../utils/db_action");
 const sql = require("mssql");
 const database = require("../../config");
 
@@ -45,7 +45,6 @@ router.post("/create", checkAuth, checkRole, async (request, response) => {
           await deleteCartItem(cart.cartID, idUser, transaction);
         }
 
-        //cap nhat orderCode, orderStatus = 0
         await insertOderCodeAndOrderTotal(
           orderID,
           orderCode,
@@ -85,6 +84,8 @@ router.post("/create", checkAuth, checkRole, async (request, response) => {
     });
   }
 });
+
+async function createPaymentOrder(orderID, paymentMethod, transaction) {}
 
 async function deleteCartItem(cartID, userID, transaction) {
   try {
@@ -145,12 +146,11 @@ async function insertOderCodeAndOrderTotal(
 async function mapCarttoOrderItem(cartID, orderID, userID, transaction) {
   try {
     const query = `
-        INSERT INTO Order_item (product_id, orderId, product_name, productSku_id, quantity, price, price_before)
+        INSERT INTO Order_item (product_id, orderId, productSku_id, quantity, price, price_before)
         OUTPUT INSERTED.price, INSERTED.quantity
         SELECT 
         p.id AS product_id,
         @orderId AS orderId,
-        p.name,
         ps.id AS productSku_id,
         c.quantity,
         ps.price,
@@ -264,9 +264,96 @@ function generateOrderCode(orderID, DateNow) {
 
 router.get("/get-list", checkAuth, checkRole, async (request, response) => {
   try {
-    response.status(200).json();
+    const { orderStatus } = request.query;
+    let dataResponse = [];
+    const ListOrder = await getOrderByOrderId(
+      orderStatus,
+      request.userData.uuid
+    );
+    for (const order of ListOrder) {
+      const orderItemList = await getOrderItemList(order.id);
+      let dataOrderItem = [];
+      for (const orderItem of orderItemList) {
+        await getOrderItem(orderItem.orderItemID).then((result) => {
+          dataOrderItem.push(result);
+        });
+      }
+      dataResponse.push({
+        dataOrderItem: dataOrderItem,
+        orderStatus: orderItemList[0].orderStatus,
+        orderCode: orderItemList[0].orderCode,
+        orderID: order.id,
+        paymentMethod: orderItemList[0].paymentMethod,
+      });
+    }
+    response.status(200).json(dataResponse);
   } catch (error) {
-    // Xử lý lỗi cụ thể
+    console.log(error);
+    if (error.code === "EREQUEST") {
+      return response.status(500).json({
+        error: "",
+      });
+    }
+
+    response.status(500).json({
+      error: error,
+    });
+  }
+});
+async function getOrderByOrderId(orderStatus, idAccount) {
+  try {
+    const query = `
+    SELECT
+    o.id
+    FROM [User] AS u
+    JOIN [Order] AS o ON u.id = o.idUser
+    WHERE u.id_account = @idAccount AND o.orderStatus = @orderStatus
+    ORDER BY o.createdDate;
+    `;
+    const result = await database
+      .request()
+      .input("idAccount", idAccount)
+      .input("orderStatus", orderStatus)
+      .query(query);
+    console.log(result.recordset);
+    return result.recordset;
+  } catch (error) {
+    throw "Error in getOrderByOrderId";
+  }
+}
+router.get("/get-detail", checkAuth, checkRole, async (request, response) => {
+  try {
+    const { orderID } = request.query;
+
+    await checkOrderExist(orderID, request.userData.uuid);
+    const orderItemList = await getOrderItemList(orderID);
+    const addressOrder = await getAddressOrder(orderID);
+    let dataOrderItem = [];
+    for (const orderItem of orderItemList) {
+      await getOrderItem(orderItem.orderItemID).then((result) => {
+        dataOrderItem.push(result);
+      });
+    }
+    dataResponse = {
+      receiverAddresse: {
+        receiverAddressID: addressOrder.receiverAddressID,
+        receiverContactName: addressOrder.receiverContactName,
+        receiverPhone: addressOrder.receiverPhone,
+        receiverEmail: addressOrder.receiverEmail,
+        addressLabel: addressOrder.addressLabel,
+        cityName: addressOrder.cityName,
+        districtName: addressOrder.districtName,
+        addressDetail: addressOrder.addressDetail,
+      },
+      dataOrderItem: dataOrderItem,
+      orderStatus: orderItemList[0].orderStatus,
+      orderCode: orderItemList[0].orderCode,
+      orderID: orderID,
+      paymentMethod: orderItemList[0].paymentMethod,
+    };
+    response.status(200).json(dataResponse);
+  } catch (error) {
+    console.log(error);
     if (error.code === "EREQUEST") {
       return response.status(500).json({
         error: "",
@@ -279,22 +366,131 @@ router.get("/get-list", checkAuth, checkRole, async (request, response) => {
   }
 });
 
-router.get("/get-detail", checkAuth, checkRole, async (request, response) => {
+async function checkOrderExist(orderID, idAccount) {
   try {
-    response.status(200).json();
-  } catch (error) {
-    // Xử lý lỗi cụ thể
-    if (error.code === "EREQUEST") {
-      return response.status(500).json({
-        error: "",
-      });
+    console.log(orderID);
+    const query = `
+    SELECT
+    1
+    FROM [User] AS u
+    JOIN [Order] AS o ON u.id = o.idUser
+    WHERE u.id_account = @idAccount AND o.id = @orderID
+    `;
+    const result = await database
+      .request()
+      .input("idAccount", idAccount)
+      .input("orderID", orderID)
+      .query(query);
+    console.log(result.recordset);
+    if (result.recordset.length === 0) {
+      throw "Error in checkOrderExist";
     }
-
-    response.status(500).json({
-      error: "Internal Server Error",
-    });
+    return;
+  } catch (error) {
+    throw "Error in checkOrderExist";
   }
-});
+}
+
+async function getAddressOrder(orderID) {
+  try {
+    const query = `
+    SELECT
+        ao.id AS receiverAddressID,
+        ao.receiverContactName,
+        ao.receiverPhone,
+        ao.receiverEmail,
+        ao.addressLabel,
+        ao.cityName,
+        ao.districtName,
+        ao.addressDetail
+    FROM AddressOrder AS ao
+    WHERE ao.orderId = @orderID
+    `;
+    const result = await database
+      .request()
+      .input("orderID", orderID)
+      .query(query);
+    return result.recordset[0];
+  } catch (error) {
+    console.log(error);
+    throw "Error in getAddressOrder";
+  }
+}
+
+async function getOrderItem(orderItemID) {
+  try {
+    const queryDetailOrderItem = `
+    SELECT
+    oi.productSku_id AS productSKUID, 
+    oi.quantity, 
+    oi.price, 
+    oi.price_before AS priceBefore,
+    p.id AS productID, p.name AS productName,
+    p.description AS productDescription,
+    ps.idAttributeValue1 AS idAttributeValue1,
+    ps.idAttributeValue1 AS idAttributeValue2
+    FROM Order_item oi
+    JOIN Product p ON oi.product_id = p.id
+    JOIN ProductSku ps ON oi.productSku_id = ps.id
+    WHERE oi.id = @orderItemID;
+    `;
+    const resultDetailOrderItem = await database
+      .request()
+      .input("orderItemID", orderItemID)
+      .query(queryDetailOrderItem);
+    const productSKU = {
+      productSKUID: resultDetailOrderItem.recordset[0].productSKUID,
+      idAttributeValue1: resultDetailOrderItem.recordset[0].idAttributeValue1,
+      idAttributeValue2: resultDetailOrderItem.recordset[0].idAttributeValue2,
+    };
+    medias = await db_action.getImageListBySKU(
+      resultDetailOrderItem.recordset[0].productID,
+      productSKU
+    );
+    attributes = await db_action.getAttributes(
+      resultDetailOrderItem.recordset[0].productID,
+      productSKU
+    );
+    const orderItem = {
+      orderItemID: orderItemID,
+      productID: resultDetailOrderItem.recordset[0].productID,
+      productName: resultDetailOrderItem.recordset[0].productName,
+      productDescription: resultDetailOrderItem.recordset[0].productDescription,
+      productSKUID: resultDetailOrderItem.recordset[0].productSKUID,
+      medias: medias,
+      quantity: resultDetailOrderItem.recordset[0].quantity,
+      price: resultDetailOrderItem.recordset[0].price,
+      priceBefore: resultDetailOrderItem.recordset[0].priceBefore,
+      attribute: attributes,
+    };
+    return orderItem;
+  } catch (error) {
+    console.log(error);
+    throw "Error in getOrderItem";
+  }
+}
+async function getOrderItemList(orderID) {
+  try {
+    const query = `
+    SELECT
+    o.id AS orderID,
+    o.orderCode,
+    o.paymentMethod,
+    o.orderStatus,
+    oi.id AS orderItemID
+    FROM [Order] AS o
+    JOIN Order_item AS oi ON o.id = oi.orderId
+    WHERE o.id = @orderID;
+    `;
+    const result = await database
+      .request()
+      .input("orderID", orderID)
+      .query(query);
+    return result.recordset;
+  } catch (error) {
+    throw "Error in getOrderDetail";
+  }
+}
 
 router.get(
   "/get-order-status-tracking",
@@ -302,7 +498,10 @@ router.get(
   checkRole,
   async (request, response) => {
     try {
-      response.status(200).json();
+      const { orderID } = request.query;
+      await checkOrderExist(orderID, request.userData.uuid);
+      const orderStatusTrackingList = await getListOrderStatusTracking(orderID);
+      response.status(200).json(orderStatusTrackingList);
     } catch (error) {
       // Xử lý lỗi cụ thể
       if (error.code === "EREQUEST") {
@@ -312,21 +511,56 @@ router.get(
       }
 
       response.status(500).json({
-        error: "Internal Server Error",
+        error: error,
       });
     }
   }
 );
 
+async function getListOrderStatusTracking(orderID) {
+  try {
+    const query = `
+    SELECT
+    ot.id AS orderStatusTrackingID,
+    ot.orderId AS orderID,
+    ot.orderStatus,
+    ot.actionDate
+    FROM OrderTracking ot
+    WHERE ot.orderId = @orderID
+    ORDER BY ot.actionDate DESC;
+    `;
+    const result = await database
+      .request()
+      .input("orderID", orderID)
+      .query(query);
+    return result.recordset.map((item) => ({
+      orderStatusTrackingID: item.orderStatusTrackingID,
+      orderID: item.orderID,
+      orderStatus: Number(item.orderStatus), // Chuyển đổi thành số
+      actionDate: item.actionDate,
+    }));
+  } catch (error) {
+    throw "Error in getListOrderStatusTracking";
+  }
+}
+//  ORDER_STATUS_NEW : 0,
+//   ORDER_STATUS_APPROVED : 1,
+//   ORDER_STATUS_PACKING : 2,
+//   ORDER_STATUS_ON_DELIVERING : 3,
+//   ORDER_STATUS_DELIVERY_SUCCESS : 4,
+//   ORDER_STATUS_CUSTOMER_CANCELLED : 5,
+//   ORDER_STATUS_SELLER_CANCELLED : 6,
+//   ORDER_STATUS_RETURNED : 7,
 router.get(
   "/get-count-list",
   checkAuth,
   checkRole,
   async (request, response) => {
     try {
-      response.status(200).json();
+      const responseCount = await countOrders(request.userData.uuid);
+      response.status(200).json(responseCount);
     } catch (error) {
-      // Xử lý lỗi cụ thể
+      console.log(error);
       if (error.code === "EREQUEST") {
         return response.status(500).json({
           error: "",
@@ -339,6 +573,34 @@ router.get(
     }
   }
 );
+
+async function countOrders(idAccount) {
+  try {
+    const query = `
+    SELECT
+    COUNT(CASE WHEN o.orderStatus = 0 THEN 1 END) AS countNew,
+    COUNT(CASE WHEN o.orderStatus = 1 THEN 1 END) AS countApproved,
+    COUNT(CASE WHEN o.orderStatus = 2 THEN 1 END) AS countPacking,
+    COUNT(CASE WHEN o.orderStatus = 3 THEN 1 END) AS countOnDelivering,
+    COUNT(CASE WHEN o.orderStatus = 4 THEN 1 END) AS countDeliverySuccess,
+    COUNT(CASE WHEN o.orderStatus = 5 THEN 1 END) AS countCustomerCancelled,
+    COUNT(CASE WHEN o.orderStatus = 6 THEN 1 END) AS countSellerCancelled,
+    COUNT(CASE WHEN o.orderStatus = 7 THEN 1 END) AS countReturned,
+    COUNT(CASE WHEN o.orderStatus = 8 THEN 1 END) AS countCancel
+    FROM [User] AS u
+    JOIN [Order] AS o ON u.id = o.idUser
+    WHERE u.id_account = @idAccount;
+    `;
+    const result = await database
+      .request()
+      .input("idAccount", idAccount)
+      .query(query);
+    return result.recordset[0];
+  } catch (error) {
+    console.log(error);
+    throw "Error in countOrders";
+  }
+}
 
 router.post(
   "/test-update-order-status",

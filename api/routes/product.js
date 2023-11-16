@@ -217,7 +217,7 @@ router.post(
     try {
       const name = request.body.name;
       const slogan = request.body.slogan;
-      const decription = request.body.decription;
+      const description = request.body.description;
       const notes = request.body.notes;
       const madeIn = request.body.madeIn;
       const uses = request.body.uses;
@@ -238,12 +238,12 @@ router.post(
         .query(queryUser);
 
       const queryProduct =
-        "INSERT INTO Product(name, slogan, decription, notes, madeIn, uses, priceDisplay, sellQuantity, id_Category, id_User) OUTPUT inserted.id  VALUES (@name, @slogan, @decription, @notes, @madeIn, @uses, @priceDisplay, @sellQuantity, @idCategory, @idUser)";
+        "INSERT INTO Product(name, slogan, description, notes, madeIn, uses, priceDisplay, sellQuantity, id_Category, id_User) OUTPUT inserted.id  VALUES (@name, @slogan, @description, @notes, @madeIn, @uses, @priceDisplay, @sellQuantity, @idCategory, @idUser)";
       const productResult = await database
         .request()
         .input("name", name)
         .input("slogan", slogan)
-        .input("decription", decription)
+        .input("description", description)
         .input("notes", notes)
         .input("madeIn", madeIn)
         .input("uses", uses)
@@ -376,7 +376,7 @@ router.post(
   }
 );
 /*Bat dau chinh sua*/
-const medias = async (idProduct) => {
+const getMediasByProductId = async (idProduct) => {
   const queryMedia =
     "SELECT id AS mediaID, linkString AS linkString, title AS title, description AS description FROM Media WHERE id_product = @idProduct";
   const resultMedia = await database
@@ -402,7 +402,7 @@ router.get("/get-detail", async (request, response) => {
   try {
     const idProduct = request.query.ProductID;
 
-    const media = await medias(idProduct);
+    const media = await getMediasByProductId(idProduct);
     const sku = await skus(idProduct);
     // console.log(media);
     //console.log(sku);
@@ -462,7 +462,7 @@ router.get("/get-detail", async (request, response) => {
       productID: resultProduct.recordset[0].id,
       sellerID: resultProduct.recordset[0].id_User,
       productName: resultProduct.recordset[0].name,
-      productDescription: resultProduct.recordset[0].decription,
+      productDescription: resultProduct.recordset[0].description,
       productNotes: resultProduct.recordset[0].notes,
       productSlogan: resultProduct.recordset[0].slogan,
       productMadeIn: resultProduct.recordset[0].madeIn,
@@ -588,7 +588,7 @@ router.get("/get-list-best-seller", async (request, response) => {
     var products = [];
 
     for (var i = 0; i < resultProduct.recordset.length; i++) {
-      var media = await medias(resultProduct.recordset[i].id);
+      var media = await getMediasByProductId(resultProduct.recordset[i].id);
       var sku = await skus(resultProduct.recordset[i].id);
       if (Array.isArray(sku)) {
         var newSku = sku.map((item) => {
@@ -603,7 +603,7 @@ router.get("/get-list-best-seller", async (request, response) => {
       var product = {
         productID: resultProduct.recordset[i].id,
         productName: resultProduct.recordset[i].name,
-        productDescription: resultProduct.recordset[i].decription,
+        productDescription: resultProduct.recordset[i].description,
         medias: media,
         productSKU: newSku,
       };
@@ -651,7 +651,7 @@ router.get("/get-list-new", async (request, response) => {
     var products = [];
 
     for (var i = 0; i < resultProduct.recordset.length; i++) {
-      var media = await medias(resultProduct.recordset[i].id);
+      var media = await getMediasByProductId(resultProduct.recordset[i].id);
       var sku = await skus(resultProduct.recordset[i].id);
       if (Array.isArray(sku)) {
         var newSku = sku.map((item) => {
@@ -666,7 +666,7 @@ router.get("/get-list-new", async (request, response) => {
       var product = {
         productID: resultProduct.recordset[i].id,
         productName: resultProduct.recordset[i].name,
-        productDescription: resultProduct.recordset[i].decription,
+        productDescription: resultProduct.recordset[i].description,
         medias: media,
         productSKU: newSku,
       };
@@ -714,7 +714,7 @@ router.get("/get-list-hot", get, async (request, response) => {
     var products = [];
 
     for (var i = 0; i < resultProduct.recordset.length; i++) {
-      var media = await medias(resultProduct.recordset[i].id);
+      var media = await getMediasByProductId(resultProduct.recordset[i].id);
       var sku = await skus(resultProduct.recordset[i].id);
       if (Array.isArray(sku)) {
         var newSku = sku.map((item) => {
@@ -729,7 +729,7 @@ router.get("/get-list-hot", get, async (request, response) => {
       var product = {
         productID: resultProduct.recordset[i].id,
         productName: resultProduct.recordset[i].name,
-        productDescription: resultProduct.recordset[i].decription,
+        productDescription: resultProduct.recordset[i].description,
         medias: media,
         productSKU: newSku,
       };
@@ -777,7 +777,7 @@ router.get("/get-list-good-price-today", get, async (request, response) => {
     var products = [];
 
     for (var i = 0; i < resultProduct.recordset.length; i++) {
-      var media = await medias(resultProduct.recordset[i].id);
+      var media = await getMediasByProductId(resultProduct.recordset[i].id);
       var sku = await skus(resultProduct.recordset[i].id);
       if (Array.isArray(sku)) {
         var newSku = sku.map((item) => {
@@ -792,7 +792,7 @@ router.get("/get-list-good-price-today", get, async (request, response) => {
       var product = {
         productID: resultProduct.recordset[i].id,
         productName: resultProduct.recordset[i].name,
-        productDescription: resultProduct.recordset[i].decription,
+        productDescription: resultProduct.recordset[i].description,
         medias: media,
         productSKU: newSku,
       };
@@ -847,7 +847,7 @@ router.get("/get-list-same-category", async (request, response) => {
     var products = [];
 
     for (var i = 0; i < resultProduct.recordset.length; i++) {
-      var media = await medias(resultProduct.recordset[i].id);
+      var media = await getMediasByProductId(resultProduct.recordset[i].id);
       var sku = await skus(resultProduct.recordset[i].id);
       if (Array.isArray(sku)) {
         var newSku = sku.map((item) => {
@@ -862,7 +862,7 @@ router.get("/get-list-same-category", async (request, response) => {
       var product = {
         productID: resultProduct.recordset[i].id,
         productName: resultProduct.recordset[i].name,
-        productDescription: resultProduct.recordset[i].decription,
+        productDescription: resultProduct.recordset[i].description,
         medias: media,
         productSKU: newSku,
       };
@@ -972,7 +972,7 @@ async function processSkus(productID) {
   const sku = await skus(productID);
 
   for (const s of sku) {
-    const image = await getImage(productID, s);
+    const image = await getLinkStringBySku(productID, s);
     const attributes = await getAttributes(productID, s);
 
     const newSku = {
@@ -989,7 +989,7 @@ async function processSkus(productID) {
   return skuss;
 }
 
-async function getImage(productID, sku) {
+async function getLinkStringBySku(productID, sku) {
   if (sku.idAttributeValue1 === null) {
     const queryImage =
       "SELECT linkString FROM Media WHERE id_product = @idProduct AND isDefault = 1";
@@ -1052,7 +1052,7 @@ async function processAttribute(productID, attributeValueID, sku) {
     productSKUID: sku.productSKUID,
     attributeID: attributesResult.recordset[0].id,
     locAttributeName: attributesResult.recordset[0].name,
-    locAttributeDescription: attributesResult.recordset[0].decription,
+    locAttributeDescription: attributesResult.recordset[0].description,
     attributeValueID: resultAttributeValue.recordset[0].id,
     locAttributeValueName: resultAttributeValue.recordset[0].valueName,
     locAttributeValueDescription: resultAttributeValue.recordset[0].valueName,
