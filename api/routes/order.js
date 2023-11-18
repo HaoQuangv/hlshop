@@ -6,7 +6,6 @@ const database = require("../../config");
 
 const checkAuth = require("../../middleware/check_auth");
 const checkRole = require("../../middleware/check_role_user");
-const e = require("express");
 
 router.post("/create", checkAuth, checkRole, async (request, response) => {
   let transaction = new sql.Transaction(database);
@@ -266,10 +265,7 @@ router.get("/get-list", checkAuth, checkRole, async (request, response) => {
   try {
     const { orderStatus } = request.query;
     let dataResponse = [];
-    const ListOrder = await getOrderByOrderId(
-      orderStatus,
-      request.userData.uuid
-    );
+    const ListOrder = await getOrderId(orderStatus, request.userData.uuid);
     for (const order of ListOrder) {
       const orderItemList = await getOrderItemList(order.id);
       let dataOrderItem = [];
@@ -279,6 +275,9 @@ router.get("/get-list", checkAuth, checkRole, async (request, response) => {
         });
       }
       dataResponse.push({
+        sellerID: "1",
+        sellerContactFullName: "Nhà cung cấp 1",
+        sellerBusinessName: "Nhà cung cấp 1",
         dataOrderItem: dataOrderItem,
         orderStatus: orderItemList[0].orderStatus,
         orderCode: orderItemList[0].orderCode,
@@ -288,7 +287,6 @@ router.get("/get-list", checkAuth, checkRole, async (request, response) => {
     }
     response.status(200).json(dataResponse);
   } catch (error) {
-    console.log(error);
     if (error.code === "EREQUEST") {
       return response.status(500).json({
         error: "",
@@ -300,7 +298,7 @@ router.get("/get-list", checkAuth, checkRole, async (request, response) => {
     });
   }
 });
-async function getOrderByOrderId(orderStatus, idAccount) {
+async function getOrderId(orderStatus, idAccount) {
   try {
     const query = `
     SELECT
@@ -308,17 +306,16 @@ async function getOrderByOrderId(orderStatus, idAccount) {
     FROM [User] AS u
     JOIN [Order] AS o ON u.id = o.idUser
     WHERE u.id_account = @idAccount AND o.orderStatus = @orderStatus
-    ORDER BY o.createdDate;
+    ORDER BY o.createdDate DESC;
     `;
     const result = await database
       .request()
       .input("idAccount", idAccount)
       .input("orderStatus", orderStatus)
       .query(query);
-    console.log(result.recordset);
     return result.recordset;
   } catch (error) {
-    throw "Error in getOrderByOrderId";
+    throw "Error in getOrderId";
   }
 }
 router.get("/get-detail", checkAuth, checkRole, async (request, response) => {
@@ -353,7 +350,6 @@ router.get("/get-detail", checkAuth, checkRole, async (request, response) => {
     };
     response.status(200).json(dataResponse);
   } catch (error) {
-    console.log(error);
     if (error.code === "EREQUEST") {
       return response.status(500).json({
         error: "",
@@ -368,7 +364,6 @@ router.get("/get-detail", checkAuth, checkRole, async (request, response) => {
 
 async function checkOrderExist(orderID, idAccount) {
   try {
-    console.log(orderID);
     const query = `
     SELECT
     1
@@ -381,7 +376,6 @@ async function checkOrderExist(orderID, idAccount) {
       .input("idAccount", idAccount)
       .input("orderID", orderID)
       .query(query);
-    console.log(result.recordset);
     if (result.recordset.length === 0) {
       throw "Error in checkOrderExist";
     }
@@ -412,7 +406,6 @@ async function getAddressOrder(orderID) {
       .query(query);
     return result.recordset[0];
   } catch (error) {
-    console.log(error);
     throw "Error in getAddressOrder";
   }
 }
@@ -428,7 +421,7 @@ async function getOrderItem(orderItemID) {
     p.id AS productID, p.name AS productName,
     p.description AS productDescription,
     ps.idAttributeValue1 AS idAttributeValue1,
-    ps.idAttributeValue1 AS idAttributeValue2
+    ps.idAttributeValue2 AS idAttributeValue2
     FROM Order_item oi
     JOIN Product p ON oi.product_id = p.id
     JOIN ProductSku ps ON oi.productSku_id = ps.id
@@ -465,7 +458,6 @@ async function getOrderItem(orderItemID) {
     };
     return orderItem;
   } catch (error) {
-    console.log(error);
     throw "Error in getOrderItem";
   }
 }
@@ -560,7 +552,6 @@ router.get(
       const responseCount = await countOrders(request.userData.uuid);
       response.status(200).json(responseCount);
     } catch (error) {
-      console.log(error);
       if (error.code === "EREQUEST") {
         return response.status(500).json({
           error: "",
@@ -597,7 +588,6 @@ async function countOrders(idAccount) {
       .query(query);
     return result.recordset[0];
   } catch (error) {
-    console.log(error);
     throw "Error in countOrders";
   }
 }
