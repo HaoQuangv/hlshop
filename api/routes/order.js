@@ -6,6 +6,7 @@ const database = require("../../config");
 
 const checkAuth = require("../../middleware/check_auth");
 const checkRole = require("../../middleware/check_role_user");
+const e = require("express");
 
 router.post("/create", checkAuth, checkRole, async (request, response) => {
   let transaction = new sql.Transaction(database);
@@ -19,37 +20,30 @@ router.post("/create", checkAuth, checkRole, async (request, response) => {
     await transaction
       .begin()
       .then(async () => {
+        //lay dia chi nguoi nhan
+        const [receiverAddress, idUser] = await getAddressReceive(
+          receiverAddressID,
+          request.userData.uuid
+        );
         // tao bang order gom createDate, paymentMethod, userID,
-        const { orderID, idUser } = await createOrder(
-          request.userData.uuid,
+        const { orderID } = await createOrder(
+          idUser,
           paymentMethod,
           transaction,
-          DateNow
+          DateNow,
+          receiverAddress
         );
 
         const orderCode = generateOrderCode(orderID, DateNow);
 
-        await mapAddressOrder(receiverAddressID, orderID, idUser, transaction);
+        // await mapAddressOrder(receiverAddressID, orderID, idUser, transaction);
 
-        let totalPrice = 0;
         for (const cart of cartList) {
-          const { price, quantity } = await mapCarttoOrderItem(
-            cart.cartID,
-            orderID,
-            idUser,
-            transaction
-          );
-          totalPrice += price * quantity;
-          //xoa cart
+          await mapCarttoOrderItem(cart.cartID, orderID, idUser, transaction);
           await deleteCartItem(cart.cartID, idUser, transaction);
         }
 
-        await insertOderCodeAndOrderTotal(
-          orderID,
-          orderCode,
-          totalPrice,
-          transaction
-        );
+        await insertOderCode(orderID, orderCode, transaction);
         //tao bang OrderTracking gom orderId, orderStatus, createDate
         await createOrderTracking(orderID, transaction, DateNow);
 
@@ -68,6 +62,7 @@ router.post("/create", checkAuth, checkRole, async (request, response) => {
       });
     return {};
   } catch (error) {
+    console.log(error);
     if (error.code === "EREQUEST") {
       return response.status(500).json({
         error: "Database error",
@@ -83,6 +78,41 @@ router.post("/create", checkAuth, checkRole, async (request, response) => {
     });
   }
 });
+
+async function getAddressReceive(receiverAddressID, idAccount) {
+  try {
+    const query = `
+    SELECT
+    ar.id AS receiverAddressID,
+    ar.receiverContactName,
+    ar.receiverPhone,
+    ar.receiverEmail,
+    ar.addressLabel,
+    ar.cityName,
+    ar.districtName,
+    ar.addressDetail,
+    ar.cityID,
+    ar.districtID,
+    u.id AS userID
+    FROM [User] AS u
+    JOIN AddressReceive AS ar ON u.id = ar.id_user
+    WHERE ar.id = @receiverAddressID AND u.id_account = @idAccount;
+    `;
+    const result = await database
+      .request()
+      .input("receiverAddressID", receiverAddressID)
+      .input("idAccount", idAccount)
+      .query(query);
+    if (result.recordset.length === 0) {
+      throw "Not Exist receiverAddressID";
+    } else {
+      var addressToText = JSON.stringify(result.recordset[0]);
+      return [addressToText, result.recordset[0].userID];
+    }
+  } catch (error) {
+    throw error;
+  }
+}
 
 async function createPaymentOrder(orderID, paymentMethod, transaction) {}
 
@@ -119,23 +149,17 @@ async function createOrderTracking(orderID, transaction, DateNow) {
   }
 }
 
-async function insertOderCodeAndOrderTotal(
-  orderID,
-  orderCode,
-  orderTotal,
-  transaction
-) {
+async function insertOderCode(orderID, orderCode, transaction) {
   try {
     const query = `
             UPDATE [Order]
-            SET orderCode = @orderCode, order_total = @orderTotal
+            SET orderCode = @orderCode
             WHERE id = @orderID;
             `;
     await transaction
       .request()
       .input("orderID", orderID)
       .input("orderCode", orderCode)
-      .input("orderTotal", orderTotal)
       .query(query);
   } catch (error) {
     throw "Error in insertOderCodeAndOrderTotal";
@@ -146,7 +170,7 @@ async function mapCarttoOrderItem(cartID, orderID, userID, transaction) {
   try {
     const query = `
         INSERT INTO Order_item (product_id, orderId, productSku_id, quantity, price, price_before)
-        OUTPUT INSERTED.price, INSERTED.quantity
+        OUTPUT INSERTED.id, INSERTED.productSku_id, INSERTED.quantity, INSERTED.price, INSERTED.price_before, INSERTED.product_id
         SELECT 
         p.id AS product_id,
         @orderId AS orderId,
@@ -167,41 +191,59 @@ async function mapCarttoOrderItem(cartID, orderID, userID, transaction) {
       .input("userID", userID)
       .query(query);
     if (result.recordset.length > 0) {
-      const price = result.recordset[0].price;
-      const quantity = result.recordset[0].quantity;
-      return { price, quantity };
+      const queryGetSku = `
+            SELECT
+            ps.id AS productSku_id,
+            ps.idAttributeValue1 AS idAttributeValue1,
+            ps.idAttributeValue2 AS idAttributeValue2,
+						p.name,
+						p.description
+            FROM Product p
+						JOIN ProductSku ps ON p.id = ps.idProduct
+            WHERE ps.id = @productSkuID;
+            `;
+      const resultGetSku = await transaction
+        .request()
+        .input("productSkuID", result.recordset[0].productSku_id)
+        .query(queryGetSku);
+      const productSKU = {
+        productSKUID: result.recordset[0].productSku_id,
+        idAttributeValue1: resultGetSku.recordset[0].idAttributeValue1,
+        idAttributeValue2: resultGetSku.recordset[0].idAttributeValue2,
+      };
+      medias = await db_action.getImageListBySKU(
+        result.recordset[0].product_id,
+        productSKU
+      );
+      attributes = await db_action.getAttributes(
+        result.recordset[0].product_id,
+        productSKU
+      );
+      const orderItem = {
+        orderItemID: result.recordset[0].id,
+        productID: result.recordset[0].product_id,
+        productName: resultGetSku.recordset[0].name,
+        productDescription: resultGetSku.recordset[0].description,
+        productSKUID: result.recordset[0].productSku_id,
+        medias: medias,
+        quantity: result.recordset[0].quantity,
+        price: result.recordset[0].price,
+        priceBefore: result.recordset[0].price_before,
+        attribute: attributes,
+      };
+      console.log(orderItem);
+      const queryUpdateOrderItem = `
+            UPDATE Order_item
+            SET orderItemJsonToString = @orderItemJsonToString
+            WHERE id = @orderItemID;
+            `;
+      await transaction
+        .request()
+        .input("orderItemJsonToString", JSON.stringify(orderItem))
+        .input("orderItemID", orderItem.orderItemID)
+        .query(queryUpdateOrderItem);
     } else {
       throw "Not Exist cartID";
-    }
-  } catch (error) {
-    throw error;
-  }
-}
-
-async function mapAddressOrder(
-  receiverAddressID,
-  orderID,
-  userID,
-  transaction
-) {
-  try {
-    const query = `
-      INSERT INTO AddressOrder (receiverContactName, receiverPhone, receiverEmail, addressLabel, cityName, districtName, addressDetail, orderId)
-      OUTPUT INSERTED.receiverContactName
-      SELECT receiverContactName, receiverPhone, receiverEmail, addressLabel, cityName, districtName, addressDetail, @orderId AS orderId
-      FROM AddressReceive
-      WHERE id = @receiverAddressID AND id_user = @userID;
-    `;
-
-    const result = await transaction
-      .request()
-      .input("orderId", orderID)
-      .input("receiverAddressID", receiverAddressID)
-      .input("userID", userID)
-      .query(query);
-
-    if (result.recordset.length === 0) {
-      throw "Not Exist receiverAddressID";
     }
   } catch (error) {
     throw error;
@@ -217,31 +259,33 @@ function removeDuplicates(arr) {
   });
 }
 
-async function createOrder(idAccount, paymentMethod, transaction, DateNow) {
+async function createOrder(
+  idUser,
+  paymentMethod,
+  transaction,
+  DateNow,
+  receiverAddress
+) {
   try {
-    const queryUser = "SELECT id FROM [User] WHERE id_account = @idAccount";
-    const userResult = await database
-      .request()
-      .input("idAccount", idAccount)
-      .query(queryUser);
-
     const query = `
-        INSERT INTO [Order] (idUser, paymentMethod, createdDate, orderStatus)
+        INSERT INTO [Order] (idUser, paymentMethod, createdDate, orderStatus, receiverAddress)
         OUTPUT INSERTED.id
-        VALUES (@idUser, @paymentMethod, @createdDate, @orderStatus);
+        VALUES (@idUser, @paymentMethod, @createdDate, @orderStatus, @receiverAddress);
         `;
     const result = await transaction
       .request()
-      .input("idUser", userResult.recordset[0].id)
+      .input("idUser", idUser)
       .input("paymentMethod", paymentMethod)
       .input("createdDate", DateNow)
       .input("orderStatus", 0)
+      .input("receiverAddress", receiverAddress)
       .query(query);
 
     const orderID = result.recordset[0].id;
-    const idUser = userResult.recordset[0].id;
-    return { orderID, idUser };
+    console.log(orderID);
+    return { orderID };
   } catch (error) {
+    console.log(error);
     throw "Error in createOrder";
   }
 }
@@ -264,28 +308,11 @@ function generateOrderCode(orderID, DateNow) {
 router.get("/get-list", checkAuth, checkRole, async (request, response) => {
   try {
     const { orderStatus } = request.query;
-    let dataResponse = [];
-    const ListOrder = await getOrderId(orderStatus, request.userData.uuid);
-    for (const order of ListOrder) {
-      const orderItemList = await getOrderItemList(order.id);
-      let dataOrderItem = [];
-      for (const orderItem of orderItemList) {
-        await getOrderItem(orderItem.orderItemID).then((result) => {
-          dataOrderItem.push(result);
-        });
-      }
-      dataResponse.push({
-        sellerID: "1",
-        sellerContactFullName: "Nhà cung cấp 1",
-        sellerBusinessName: "Nhà cung cấp 1",
-        dataOrderItem: dataOrderItem,
-        orderStatus: orderItemList[0].orderStatus,
-        orderCode: orderItemList[0].orderCode,
-        orderID: order.id,
-        paymentMethod: orderItemList[0].paymentMethod,
-      });
-    }
-    response.status(200).json(dataResponse);
+    const ListOrder = await getListOrderByStatus(
+      orderStatus,
+      request.userData.uuid
+    );
+    response.status(200).json(ListOrder);
   } catch (error) {
     if (error.code === "EREQUEST") {
       return response.status(500).json({
@@ -298,22 +325,43 @@ router.get("/get-list", checkAuth, checkRole, async (request, response) => {
     });
   }
 });
-async function getOrderId(orderStatus, idAccount) {
+async function getListOrderByStatus(orderStatus, idAccount) {
   try {
     const query = `
-    SELECT
-    o.id
-    FROM [User] AS u
-    JOIN [Order] AS o ON u.id = o.idUser
-    WHERE u.id_account = @idAccount AND o.orderStatus = @orderStatus
-    ORDER BY o.createdDate DESC;
-    `;
+          SELECT
+          o.id AS orderID,
+          o.orderCode,
+          o.paymentMethod,
+          o.orderStatus,
+          oi.orderItemJsonToString AS dataOrderItem
+          FROM [User] AS u
+          JOIN [Order] AS o ON u.id = o.idUser
+          JOIN Order_item AS oi ON oi.orderId = o.id
+          WHERE u.id_account = @idAccount AND o.orderStatus = @orderStatus
+          ORDER BY o.createdDate DESC;
+          `;
     const result = await database
       .request()
       .input("idAccount", idAccount)
       .input("orderStatus", orderStatus)
       .query(query);
-    return result.recordset;
+    const resultMap = {};
+
+    result.recordset.forEach((item) => {
+      const { orderID, dataOrderItem, ...rest } = item;
+      if (resultMap[orderID]) {
+        resultMap[orderID].dataOrderItem.push(JSON.parse(dataOrderItem));
+      } else {
+        resultMap[orderID] = {
+          orderID,
+          dataOrderItem: [JSON.parse(dataOrderItem)],
+          ...rest,
+        };
+      }
+    });
+
+    const resultArray = Object.values(resultMap);
+    return resultArray;
   } catch (error) {
     throw "Error in getOrderId";
   }
@@ -323,32 +371,8 @@ router.get("/get-detail", checkAuth, checkRole, async (request, response) => {
     const { orderID } = request.query;
 
     await checkOrderExist(orderID, request.userData.uuid);
-    const orderItemList = await getOrderItemList(orderID);
-    const addressOrder = await getAddressOrder(orderID);
-    let dataOrderItem = [];
-    for (const orderItem of orderItemList) {
-      await getOrderItem(orderItem.orderItemID).then((result) => {
-        dataOrderItem.push(result);
-      });
-    }
-    dataResponse = {
-      receiverAddresse: {
-        receiverAddressID: addressOrder.receiverAddressID,
-        receiverContactName: addressOrder.receiverContactName,
-        receiverPhone: addressOrder.receiverPhone,
-        receiverEmail: addressOrder.receiverEmail,
-        addressLabel: addressOrder.addressLabel,
-        cityName: addressOrder.cityName,
-        districtName: addressOrder.districtName,
-        addressDetail: addressOrder.addressDetail,
-      },
-      dataOrderItem: dataOrderItem,
-      orderStatus: orderItemList[0].orderStatus,
-      orderCode: orderItemList[0].orderCode,
-      orderID: orderID,
-      paymentMethod: orderItemList[0].paymentMethod,
-    };
-    response.status(200).json(dataResponse);
+    const orderItemList = await getOrderDetailByID(orderID);
+    response.status(200).json(orderItemList);
   } catch (error) {
     if (error.code === "EREQUEST") {
       return response.status(500).json({
@@ -385,91 +409,16 @@ async function checkOrderExist(orderID, idAccount) {
   }
 }
 
-async function getAddressOrder(orderID) {
+async function getOrderDetailByID(orderID) {
   try {
     const query = `
     SELECT
-        ao.id AS receiverAddressID,
-        ao.receiverContactName,
-        ao.receiverPhone,
-        ao.receiverEmail,
-        ao.addressLabel,
-        ao.cityName,
-        ao.districtName,
-        ao.addressDetail
-    FROM AddressOrder AS ao
-    WHERE ao.orderId = @orderID
-    `;
-    const result = await database
-      .request()
-      .input("orderID", orderID)
-      .query(query);
-    return result.recordset[0];
-  } catch (error) {
-    throw "Error in getAddressOrder";
-  }
-}
-
-async function getOrderItem(orderItemID) {
-  try {
-    const queryDetailOrderItem = `
-    SELECT
-    oi.productSku_id AS productSKUID, 
-    oi.quantity, 
-    oi.price, 
-    oi.price_before AS priceBefore,
-    p.id AS productID, p.name AS productName,
-    p.description AS productDescription,
-    ps.idAttributeValue1 AS idAttributeValue1,
-    ps.idAttributeValue2 AS idAttributeValue2
-    FROM Order_item oi
-    JOIN Product p ON oi.product_id = p.id
-    JOIN ProductSku ps ON oi.productSku_id = ps.id
-    WHERE oi.id = @orderItemID;
-    `;
-    const resultDetailOrderItem = await database
-      .request()
-      .input("orderItemID", orderItemID)
-      .query(queryDetailOrderItem);
-    const productSKU = {
-      productSKUID: resultDetailOrderItem.recordset[0].productSKUID,
-      idAttributeValue1: resultDetailOrderItem.recordset[0].idAttributeValue1,
-      idAttributeValue2: resultDetailOrderItem.recordset[0].idAttributeValue2,
-    };
-    medias = await db_action.getImageListBySKU(
-      resultDetailOrderItem.recordset[0].productID,
-      productSKU
-    );
-    attributes = await db_action.getAttributes(
-      resultDetailOrderItem.recordset[0].productID,
-      productSKU
-    );
-    const orderItem = {
-      orderItemID: orderItemID,
-      productID: resultDetailOrderItem.recordset[0].productID,
-      productName: resultDetailOrderItem.recordset[0].productName,
-      productDescription: resultDetailOrderItem.recordset[0].productDescription,
-      productSKUID: resultDetailOrderItem.recordset[0].productSKUID,
-      medias: medias,
-      quantity: resultDetailOrderItem.recordset[0].quantity,
-      price: resultDetailOrderItem.recordset[0].price,
-      priceBefore: resultDetailOrderItem.recordset[0].priceBefore,
-      attribute: attributes,
-    };
-    return orderItem;
-  } catch (error) {
-    throw "Error in getOrderItem";
-  }
-}
-async function getOrderItemList(orderID) {
-  try {
-    const query = `
-    SELECT
+    o.receiverAddress,
     o.id AS orderID,
     o.orderCode,
     o.paymentMethod,
     o.orderStatus,
-    oi.id AS orderItemID
+    oi.orderItemJsonToString AS dataOrderItem
     FROM [Order] AS o
     JOIN Order_item AS oi ON o.id = oi.orderId
     WHERE o.id = @orderID;
@@ -478,7 +427,25 @@ async function getOrderItemList(orderID) {
       .request()
       .input("orderID", orderID)
       .query(query);
-    return result.recordset;
+
+    const resultMap = {};
+
+    result.recordset.forEach((item) => {
+      const { receiverAddress, orderID, dataOrderItem, ...rest } = item;
+      if (resultMap[orderID]) {
+        resultMap[orderID].dataOrderItem.push(JSON.parse(dataOrderItem));
+      } else {
+        resultMap[orderID] = {
+          receiverAddresse: JSON.parse(receiverAddress),
+          orderID,
+          dataOrderItem: [JSON.parse(dataOrderItem)],
+          ...rest,
+        };
+      }
+    });
+
+    const resultArray = Object.values(resultMap);
+    return resultArray[0];
   } catch (error) {
     throw "Error in getOrderDetail";
   }
@@ -613,5 +580,21 @@ router.post(
     }
   }
 );
+
+router.get("/test", checkAuth, checkRole, async (request, response) => {
+  try {
+    response.status(200).json();
+  } catch (error) {
+    if (error.code === "EREQUEST") {
+      return response.status(500).json({
+        error: "",
+      });
+    }
+
+    response.status(500).json({
+      error: "Internal Server Error",
+    });
+  }
+});
 
 module.exports = router;
