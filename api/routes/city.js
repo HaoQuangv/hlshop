@@ -1,6 +1,6 @@
 const express = require("express");
 const axios = require("axios");
-
+const { token } = require("../../utils/shipping");
 const router = express.Router();
 
 module.exports = router;
@@ -8,36 +8,37 @@ module.exports = router;
 // router.get("/get-list", async (req, res) => {
 //   try {
 //     const { offset, limit, search } = req.query;
-//     const response = await axios.get(
-//       "https://vn-public-apis.fpo.vn/provinces/getAll?limit=-1"
-//     );
+//     const response = await axios.get("https://provinces.open-api.vn/api/");
+
 //     let transformedData;
-//     let cities = response.data.data.data;
+//     let filteredCities = response.data;
+
 //     if (search) {
 //       // Lọc dữ liệu dựa trên tìm kiếm
-//       cities = cities.filter((city) =>
+//       filteredCities = response.data.filter((city) =>
 //         city.name.toLowerCase().includes(search.toLowerCase())
 //       );
 //     }
+
 //     if (offset === null || limit === null || isNaN(offset) || isNaN(limit)) {
 //       transformedData = {
-//         cities: cities.map((city) => {
+//         cities: filteredCities.map((city) => {
 //           return {
-//             cityID: city.code,
+//             cityID: city.code.toString(),
 //             name: city.name,
 //           };
 //         }),
-//         total: cities.length,
+//         total: filteredCities.length,
 //       };
 //     } else {
 //       transformedData = {
-//         cities: cities.slice(offset, offset + limit).map((city) => {
+//         cities: filteredCities.slice(offset, offset + limit).map((city) => {
 //           return {
-//             cityID: city.code,
+//             cityID: city.code.toString(),
 //             name: city.name,
 //           };
 //         }),
-//         total: cities.length,
+//         total: filteredCities.length,
 //       };
 //     }
 //     res.json(transformedData);
@@ -46,40 +47,57 @@ module.exports = router;
 //   }
 // });
 
+//giao hang nhanh
 router.get("/get-list", async (req, res) => {
   try {
     const { offset, limit, search } = req.query;
-    const response = await axios.get("https://provinces.open-api.vn/api/");
+
+    // Thay đổi đường link API của bạn ở đây
+    const apiUrl =
+      "https://online-gateway.ghn.vn/shiip/public-api/master-data/province";
+
+    // Thêm token vào header
+    const headers = {
+      token: token,
+    };
+
+    const response = await axios.get(apiUrl, { headers });
 
     let transformedData;
-    let filteredCities = response.data;
+    let filteredProvinces = response.data.data; // Lấy mảng dữ liệu từ response
 
     if (search) {
       // Lọc dữ liệu dựa trên tìm kiếm
-      filteredCities = response.data.filter((city) =>
-        city.name.toLowerCase().includes(search.toLowerCase())
+      filteredProvinces = response.data.data.filter(
+        (province) =>
+          province.ProvinceName.toLowerCase().includes(search.toLowerCase()) ||
+          province.NameExtension.some((extension) =>
+            extension.toLowerCase().includes(search.toLowerCase())
+          )
       );
     }
 
     if (offset === null || limit === null || isNaN(offset) || isNaN(limit)) {
       transformedData = {
-        cities: filteredCities.map((city) => {
+        cities: filteredProvinces.map((province) => {
           return {
-            cityID: city.code.toString(),
-            name: city.name,
+            cityID: province.ProvinceID.toString(),
+            name: province.ProvinceName,
           };
         }),
-        total: filteredCities.length,
+        total: filteredProvinces.length,
       };
     } else {
       transformedData = {
-        cities: filteredCities.slice(offset, offset + limit).map((city) => {
-          return {
-            cityID: city.code.toString(),
-            name: city.name,
-          };
-        }),
-        total: filteredCities.length,
+        cities: filteredProvinces
+          .slice(offset, offset + limit)
+          .map((province) => {
+            return {
+              cityID: province.ProvinceID.toString(),
+              name: province.ProvinceName,
+            };
+          }),
+        total: filteredProvinces.length,
       };
     }
     res.json(transformedData);
