@@ -14,6 +14,8 @@ router.post("/add", checkAuth, checkRole, async (request, response) => {
     const cityID = request.body.cityID;
     const districtName = request.body.districtName;
     const districtID = request.body.districtID;
+    const wardName = request.body.wardName;
+    const wardID = request.body.wardID;
     const addressDetail = request.body.addressDetail;
     const addressLabel = Number(request.body.addressLabel);
     var isDefault = 0;
@@ -34,7 +36,7 @@ router.post("/add", checkAuth, checkRole, async (request, response) => {
     }
 
     const queryAddress =
-      "INSERT INTO AddressReceive(receiverPhone, receiverContactName, receiverEmail, isDefault, cityName, districtName, addressDetail, addressLabel, id_user, cityID, districtID, createdDate) VALUES (@receiverPhone, @receiverContactName, @receiverEmail, @isDefault, @cityName, @districtName, @addressDetail, @addressLabel, @userID, @cityID, @districtID, @createdDate)";
+      "INSERT INTO AddressReceive(receiverPhone, receiverContactName, receiverEmail, isDefault, cityName, districtName, addressDetail, addressLabel, id_user, cityID, districtID, createdDate, wardName, wardID) VALUES (@receiverPhone, @receiverContactName, @receiverEmail, @isDefault, @cityName, @districtName, @addressDetail, @addressLabel, @userID, @cityID, @districtID, @createdDate, @wardName, @wardID)";
     const addressResult = await database
       .request()
       .input("receiverPhone", receiverPhone)
@@ -49,6 +51,8 @@ router.post("/add", checkAuth, checkRole, async (request, response) => {
       .input("addressLabel", addressLabel)
       .input("userID", userResult.recordset[0].id)
       .input("createdDate", new Date())
+      .input("wardName", wardName)
+      .input("wardID", wardID)
       .query(queryAddress);
 
     response.status(200).json({
@@ -93,7 +97,7 @@ router.post("/update", checkAuth, checkRole, async (request, response) => {
         .query(queryUser);
       if (userResult.recordset[0].id == result.recordset[0].id_user) {
         const queryAddress =
-          "UPDATE AddressReceive SET receiverPhone = @receiverPhone, receiverEmail = @receiverEmail, receiverContactName = @receiverContactName, cityName = @cityName, districtName = @districtName, addressDetail = @addressDetail, addressLabel = @addressLabel, cityID = @cityID, districtID = @districtID, createdDate = @createdDate WHERE id = @addressID";
+          "UPDATE AddressReceive SET receiverPhone = @receiverPhone, receiverEmail = @receiverEmail, receiverContactName = @receiverContactName, cityName = @cityName, districtName = @districtName, addressDetail = @addressDetail, addressLabel = @addressLabel, cityID = @cityID, districtID = @districtID, createdDate = @createdDate, wardName = @wardName, wardID = @wardID WHERE id = @addressID";
         const addressResult = await database
           .request()
           .input("receiverPhone", receiverPhone)
@@ -106,6 +110,8 @@ router.post("/update", checkAuth, checkRole, async (request, response) => {
           .input("addressDetail", addressDetail)
           .input("addressLabel", addressLabel)
           .input("addressID", receiverAddressID)
+          .input("wardName", request.body.wardName)
+          .input("wardID", request.body.wardID)
           .input("createdDate", new Date())
           .query(queryAddress);
 
@@ -276,7 +282,7 @@ router.get("/get-list", checkAuth, checkRole, async (request, response) => {
       .query(queryUser);
 
     const query =
-      "SELECT id AS receiverAddressID, receiverContactName, receiverPhone, receiverEmail, addressLabel, id_user AS userID, isDefault, cityName, districtName, cityID, districtID, addressDetail FROM AddressReceive WHERE id_user = @userID ORDER BY isDefault DESC, createdDate DESC OFFSET @page ROWS FETCH NEXT @pageSize ROWS ONLY";
+      "SELECT id AS receiverAddressID, receiverContactName, receiverPhone, receiverEmail, addressLabel, id_user AS userID, isDefault, cityName, districtName, cityID, districtID, addressDetail, wardName, wardID FROM AddressReceive WHERE id_user = @userID ORDER BY isDefault DESC, createdDate DESC OFFSET @page ROWS FETCH NEXT @pageSize ROWS ONLY";
     const result = await database
       .request()
       .input("page", parseInt(offset))

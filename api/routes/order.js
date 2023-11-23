@@ -1,12 +1,13 @@
 const express = require("express");
+const axios = require("axios");
 const router = express.Router();
 const db_action = require("../../utils/db_action");
+const { token, getInfoService } = require("../../utils/shipping");
 const sql = require("mssql");
 const database = require("../../config");
 
 const checkAuth = require("../../middleware/check_auth");
 const checkRole = require("../../middleware/check_role_user");
-const e = require("express");
 
 router.post("/create", checkAuth, checkRole, async (request, response) => {
   let transaction = new sql.Transaction(database);
@@ -21,10 +22,8 @@ router.post("/create", checkAuth, checkRole, async (request, response) => {
       .begin()
       .then(async () => {
         //lay dia chi nguoi nhan
-        const [receiverAddress, idUser] = await getAddressReceive(
-          receiverAddressID,
-          request.userData.uuid
-        );
+        const [toDistrictID, toWardCode, receiverAddress, idUser] =
+          await getAddressReceive(receiverAddressID, request.userData.uuid);
         // tao bang order gom createDate, paymentMethod, userID,
         const { orderID } = await createOrder(
           idUser,
@@ -35,16 +34,29 @@ router.post("/create", checkAuth, checkRole, async (request, response) => {
         );
 
         const orderCode = generateOrderCode(orderID, DateNow);
-
-        // await mapAddressOrder(receiverAddressID, orderID, idUser, transaction);
-
+        let totalItem = 0;
         for (const cart of cartList) {
-          await mapCarttoOrderItem(cart.cartID, orderID, idUser, transaction);
+          const n = await mapCarttoOrderItem(
+            cart.cartID,
+            orderID,
+            idUser,
+            transaction
+          );
           await deleteCartItem(cart.cartID, idUser, transaction);
+          totalItem += n;
         }
 
-        await insertOderCode(orderID, orderCode, transaction);
-        //tao bang OrderTracking gom orderId, orderStatus, createDate
+        var fee = await getFeeOrder(toDistrictID, toWardCode, totalItem);
+        const totalOrder = totalItem + Number(fee);
+        feeJson = { shippingFee: fee };
+        feeText = JSON.stringify(feeJson);
+        await insertOderCode(
+          orderID,
+          orderCode,
+          transaction,
+          feeText,
+          totalOrder
+        );
         await createOrderTracking(orderID, transaction, DateNow);
 
         await transaction.commit();
@@ -79,6 +91,36 @@ router.post("/create", checkAuth, checkRole, async (request, response) => {
   }
 });
 
+async function getFeeOrder(toDistrictID, toWardCode, insuranceValue) {
+  try {
+    const serviceID = await getInfoService(toDistrictID);
+    const apiUrl =
+      "https://online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/fee";
+    const requestBody = {
+      service_id: Number(serviceID),
+      insurance_value: Number(insuranceValue),
+      coupon: null,
+      from_district_id: 3695,
+      to_district_id: Number(toDistrictID),
+      to_ward_code: toWardCode.toString(),
+      height: 15,
+      length: 15,
+      weight: 400,
+      width: 15,
+    };
+    const headers = {
+      token: token,
+      contentType: "application/json",
+    };
+    const response = await axios.post(apiUrl, requestBody, { headers });
+    var feeShip = response.data.data.total;
+    console.log("feeShip", feeShip);
+    return feeShip;
+  } catch (error) {
+    throw error;
+  }
+}
+
 async function getAddressReceive(receiverAddressID, idAccount) {
   try {
     const query = `
@@ -93,6 +135,8 @@ async function getAddressReceive(receiverAddressID, idAccount) {
     ar.addressDetail,
     ar.cityID,
     ar.districtID,
+    ar.wardID,
+    ar.wardName,
     u.id AS userID
     FROM [User] AS u
     JOIN AddressReceive AS ar ON u.id = ar.id_user
@@ -107,7 +151,12 @@ async function getAddressReceive(receiverAddressID, idAccount) {
       throw "Not Exist receiverAddressID";
     } else {
       var addressToText = JSON.stringify(result.recordset[0]);
-      return [addressToText, result.recordset[0].userID];
+      return [
+        result.recordset[0].districtID,
+        result.recordset[0].wardID,
+        addressToText,
+        result.recordset[0].userID,
+      ];
     }
   } catch (error) {
     throw error;
@@ -149,17 +198,27 @@ async function createOrderTracking(orderID, transaction, DateNow) {
   }
 }
 
-async function insertOderCode(orderID, orderCode, transaction) {
+async function insertOderCode(
+  orderID,
+  orderCode,
+  transaction,
+  fee,
+  totalOrder
+) {
   try {
     const query = `
             UPDATE [Order]
-            SET orderCode = @orderCode
+            SET orderCode = @orderCode,
+            totalPriceOrder = @totalPriceOrder,
+            orderShippingFee = @orderShippingFee
             WHERE id = @orderID;
             `;
     await transaction
       .request()
       .input("orderID", orderID)
       .input("orderCode", orderCode)
+      .input("totalPriceOrder", totalOrder)
+      .input("orderShippingFee", fee)
       .query(query);
   } catch (error) {
     throw "Error in insertOderCodeAndOrderTotal";
@@ -231,7 +290,6 @@ async function mapCarttoOrderItem(cartID, orderID, userID, transaction) {
         priceBefore: result.recordset[0].price_before,
         attribute: attributes,
       };
-      console.log(orderItem);
       const queryUpdateOrderItem = `
             UPDATE Order_item
             SET orderItemJsonToString = @orderItemJsonToString
@@ -242,6 +300,8 @@ async function mapCarttoOrderItem(cartID, orderID, userID, transaction) {
         .input("orderItemJsonToString", JSON.stringify(orderItem))
         .input("orderItemID", orderItem.orderItemID)
         .query(queryUpdateOrderItem);
+      console.log(result.recordset[0]);
+      return result.recordset[0].price * result.recordset[0].quantity;
     } else {
       throw "Not Exist cartID";
     }
@@ -282,10 +342,8 @@ async function createOrder(
       .query(query);
 
     const orderID = result.recordset[0].id;
-    console.log(orderID);
     return { orderID };
   } catch (error) {
-    console.log(error);
     throw "Error in createOrder";
   }
 }
@@ -333,6 +391,7 @@ async function getListOrderByStatus(orderStatus, idAccount) {
           o.orderCode,
           o.paymentMethod,
           o.orderStatus,
+          o.orderShippingFee,
           oi.orderItemJsonToString AS dataOrderItem
           FROM [User] AS u
           JOIN [Order] AS o ON u.id = o.idUser
@@ -348,13 +407,22 @@ async function getListOrderByStatus(orderStatus, idAccount) {
     const resultMap = {};
 
     result.recordset.forEach((item) => {
-      const { orderID, dataOrderItem, ...rest } = item;
+      const { orderID, dataOrderItem, orderShippingFee, ...rest } = item;
+
+      let parsedOrderShippingFee;
+      try {
+        parsedOrderShippingFee = JSON.parse(orderShippingFee);
+      } catch (error) {
+        parsedOrderShippingFee = {};
+      }
+
       if (resultMap[orderID]) {
         resultMap[orderID].dataOrderItem.push(JSON.parse(dataOrderItem));
       } else {
         resultMap[orderID] = {
           orderID,
           dataOrderItem: [JSON.parse(dataOrderItem)],
+          orderShippingFee: parsedOrderShippingFee,
           ...rest,
         };
       }
@@ -418,6 +486,7 @@ async function getOrderDetailByID(orderID) {
     o.orderCode,
     o.paymentMethod,
     o.orderStatus,
+    o.orderShippingFee,
     oi.orderItemJsonToString AS dataOrderItem
     FROM [Order] AS o
     JOIN Order_item AS oi ON o.id = oi.orderId
@@ -431,7 +500,17 @@ async function getOrderDetailByID(orderID) {
     const resultMap = {};
 
     result.recordset.forEach((item) => {
-      const { receiverAddress, orderID, dataOrderItem, ...rest } = item;
+      const {
+        receiverAddress,
+        orderID,
+        dataOrderItem,
+        orderShippingFee,
+        ...rest
+      } = item;
+
+      // Chuyển đổi chuỗi JSON thành đối tượng JSON
+      const parsedOrderShippingFee = JSON.parse(orderShippingFee);
+
       if (resultMap[orderID]) {
         resultMap[orderID].dataOrderItem.push(JSON.parse(dataOrderItem));
       } else {
@@ -439,11 +518,11 @@ async function getOrderDetailByID(orderID) {
           receiverAddresse: JSON.parse(receiverAddress),
           orderID,
           dataOrderItem: [JSON.parse(dataOrderItem)],
+          orderShippingFee: parsedOrderShippingFee,
           ...rest,
         };
       }
     });
-
     const resultArray = Object.values(resultMap);
     return resultArray[0];
   } catch (error) {

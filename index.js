@@ -15,7 +15,9 @@ const productRouter = require("./api/routes/product");
 const cartRouter = require("./api/routes/cart");
 const cityRouter = require("./api/routes/city");
 const districtRouter = require("./api/routes/district");
+const wardRouter = require("./api/routes/ward");
 const orderRouter = require("./api/routes/order");
+const feeShipRouter = require("./api/routes/feeship");
 
 const port = 80;
 
@@ -32,7 +34,8 @@ app.use("/api/hlshop/cart", cartRouter);
 app.use("/api/hlshop/cities", cityRouter);
 app.use("/api/hlshop/district", districtRouter);
 app.use("/api/hlshop/order", orderRouter);
-
+app.use("/api/hlshop/ward", wardRouter);
+app.use("/api/hlshop/feeship", feeShipRouter);
 // app.get('/', function (request, response) {
 //     response.send("Hello word, this is group 08")
 // })
