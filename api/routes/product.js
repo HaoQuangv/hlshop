@@ -22,7 +22,7 @@ const set = (key, value) => {
 };
 
 const get = async (request, response, next) => {
-  let key = request.route.path + JSON.stringify(request.query) + new Date();
+  let key = request.route.path + JSON.stringify(request.query);
   console.log("HLSHOP");
   console.log(key);
   let headersSent = false; // Cờ để kiểm tra xem header đã được gửi đi chưa
@@ -563,325 +563,377 @@ router.get("/get-product-sku-detail", async (request, response) => {
   }
 });
 
-router.get("/get-list-best-seller", async (request, response) => {
+router.get("/get-list-best-seller", get, async (request, response) => {
   try {
-    var offset = request.query.offset;
-    var limit = request.query.limit;
+    const offset = parseInt(request.query.offset) || 1;
+    const limit = parseInt(request.query.limit) || 10;
 
-    if (offset == null || offset < 1) {
-      offset = 1;
-    }
+    const queryProduct = `
+      SELECT 
+        p.id AS productID,
+        p.name AS productName,
+        p.description AS productDescription,
+        m.id AS mediaID,
+        m.linkString AS mediaLink,
+        m.title AS mediaTitle,
+        m.description AS mediaDescription,
+        ps.id AS productSKUID,
+        ps.price AS price,
+        ps.priceBefore AS priceBefore
+      FROM 
+        Product p
+        LEFT JOIN Media m ON p.id = m.id_product
+        LEFT JOIN ProductSku ps ON p.id = ps.idProduct
+      ORDER BY 
+        p.sellQuantity DESC
+      OFFSET 
+        @offset ROWS FETCH NEXT @limit ROWS ONLY
+    `;
 
-    if (limit == null) {
-      limit = 10;
-    }
-
-    offset = (offset - 1) * limit;
-    const queryProduct =
-      "SELECT * FROM (SELECT TOP 10 * FROM Product ORDER BY sellQuantity DESC) AS subproduct ORDER BY name OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY";
     const resultProduct = await database
       .request()
-      .input("offset", parseInt(offset))
-      .input("limit", parseInt(limit))
+      .input("offset", (offset - 1) * limit)
+      .input("limit", limit)
       .query(queryProduct);
 
-    var products = [];
+    const products = await Promise.all(
+      resultProduct.recordset.map(async (record) => {
+        const [media, sku] = await Promise.all([
+          getMediasByProductId(record.productID),
+          skus(record.productID),
+        ]);
 
-    for (var i = 0; i < resultProduct.recordset.length; i++) {
-      var media = await getMediasByProductId(resultProduct.recordset[i].id);
-      var sku = await skus(resultProduct.recordset[i].id);
-      if (Array.isArray(sku)) {
-        var newSku = sku.map((item) => {
-          return {
-            productSKUID: item.productSKUID,
-            price: item.price,
-            priceBefore: item.priceBefore,
-          };
-        });
-      }
+        const newSku = Array.isArray(sku)
+          ? sku.map((item) => ({
+              productSKUID: item.productSKUID,
+              price: item.price,
+              priceBefore: item.priceBefore,
+            }))
+          : [];
 
-      var product = {
-        productID: resultProduct.recordset[i].id,
-        productName: resultProduct.recordset[i].name,
-        productDescription: resultProduct.recordset[i].description,
-        medias: media,
-        productSKU: newSku,
-      };
-      products.push(product);
-    }
+        return {
+          productID: record.productID,
+          productName: record.productName,
+          productDescription: record.productDescription,
+          medias: media,
+          productSKU: newSku,
+        };
+      })
+    );
 
-    var responseData = {
+    const responseData = {
       result: products,
       total: 10, // Set mặc định vì chưa biết total này là gì
     };
-    // var key = request.route.path;
-    // set(key, responseData);
-
+    let key = request.route.path + JSON.stringify(request.query);
+    set(key, responseData);
     response.status(200).json(responseData);
   } catch (error) {
     console.log(error);
     response.status(500).json({
       error: "Internal Server Error",
+      details: error.message,
     });
   }
 });
 
-router.get("/get-list-new", async (request, response) => {
+router.get("/get-list-new", get, async (request, response) => {
   try {
-    var offset = request.query.offset;
-    var limit = request.query.limit;
+    const offset = parseInt(request.query.offset) || 1;
+    const limit = parseInt(request.query.limit) || 10;
 
-    if (offset == null || offset < 1) {
-      offset = 1;
-    }
+    const queryProduct = `
+      SELECT 
+        p.id AS productID,
+        p.name AS productName,
+        p.description AS productDescription,
+        m.id AS mediaID,
+        m.linkString AS mediaLink,
+        m.title AS mediaTitle,
+        m.description AS mediaDescription,
+        ps.id AS productSKUID,
+        ps.price AS price,
+        ps.priceBefore AS priceBefore
+      FROM 
+        Product p
+        LEFT JOIN Media m ON p.id = m.id_product
+        LEFT JOIN ProductSku ps ON p.id = ps.idProduct
+      ORDER BY 
+        p.createdDate DESC
+      OFFSET 
+        @offset ROWS FETCH NEXT @limit ROWS ONLY
+    `;
 
-    if (limit == null) {
-      limit = 10;
-    }
-
-    offset = (offset - 1) * limit;
-
-    const queryProduct =
-      "SELECT * FROM (SELECT TOP 10 * FROM Product ORDER BY createdDate DESC) AS subproduct ORDER BY name OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY";
     const resultProduct = await database
       .request()
-      .input("offset", parseInt(offset))
-      .input("limit", parseInt(limit))
+      .input("offset", (offset - 1) * limit)
+      .input("limit", limit)
       .query(queryProduct);
-    var products = [];
 
-    for (var i = 0; i < resultProduct.recordset.length; i++) {
-      var media = await getMediasByProductId(resultProduct.recordset[i].id);
-      var sku = await skus(resultProduct.recordset[i].id);
-      if (Array.isArray(sku)) {
-        var newSku = sku.map((item) => {
-          return {
-            productSKUID: item.productSKUID,
-            price: item.price,
-            priceBefore: item.priceBefore,
-          };
-        });
-      }
+    const products = await Promise.all(
+      resultProduct.recordset.map(async (record) => {
+        const [media, sku] = await Promise.all([
+          getMediasByProductId(record.productID),
+          skus(record.productID),
+        ]);
 
-      var product = {
-        productID: resultProduct.recordset[i].id,
-        productName: resultProduct.recordset[i].name,
-        productDescription: resultProduct.recordset[i].description,
-        medias: media,
-        productSKU: newSku,
-      };
+        const newSku = Array.isArray(sku)
+          ? sku.map((item) => ({
+              productSKUID: item.productSKUID,
+              price: item.price,
+              priceBefore: item.priceBefore,
+            }))
+          : [];
 
-      products.push(product);
-    }
+        return {
+          productID: record.productID,
+          productName: record.productName,
+          productDescription: record.productDescription,
+          medias: media,
+          productSKU: newSku,
+        };
+      })
+    );
 
-    var responseData = {
+    const responseData = {
       result: products,
       total: 10, // Set mặc định vì chưa biết total này là gì
     };
-    // var key = request.route.path;
-    // set(key, responseData);
+    let key = request.route.path + JSON.stringify(request.query);
+    set(key, responseData);
     response.status(200).json(responseData);
   } catch (error) {
     console.log(error);
     response.status(500).json({
       error: "Internal Server Error",
+      details: error.message,
     });
   }
 });
 
 router.get("/get-list-hot", get, async (request, response) => {
   try {
-    var offset = request.query.offset;
-    var limit = request.query.limit;
+    const offset = parseInt(request.query.offset) || 1;
+    const limit = parseInt(request.query.limit) || 10;
 
-    if (offset == null || offset < 1) {
-      offset = 1;
-    }
+    const queryProduct = `
+      SELECT 
+        p.id AS productID,
+        p.name AS productName,
+        p.description AS productDescription,
+        m.id AS mediaID,
+        m.linkString AS mediaLink,
+        m.title AS mediaTitle,
+        m.description AS mediaDescription,
+        ps.id AS productSKUID,
+        ps.price AS price,
+        ps.priceBefore AS priceBefore
+      FROM 
+        Product p
+        LEFT JOIN Media m ON p.id = m.id_product
+        LEFT JOIN ProductSku ps ON p.id = ps.idProduct
+      ORDER BY 
+        p.createdDate DESC
+      OFFSET 
+        @offset ROWS FETCH NEXT @limit ROWS ONLY
+    `;
 
-    if (limit == null) {
-      limit = 10;
-    }
-
-    offset = (offset - 1) * limit;
-
-    const queryProduct =
-      "SELECT * FROM (SELECT TOP 10 * FROM Product ORDER BY createdDate DESC) AS subproduct ORDER BY name OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY";
     const resultProduct = await database
       .request()
-      .input("offset", parseInt(offset))
-      .input("limit", parseInt(limit))
+      .input("offset", (offset - 1) * limit)
+      .input("limit", limit)
       .query(queryProduct);
-    var products = [];
 
-    for (var i = 0; i < resultProduct.recordset.length; i++) {
-      var media = await getMediasByProductId(resultProduct.recordset[i].id);
-      var sku = await skus(resultProduct.recordset[i].id);
-      if (Array.isArray(sku)) {
-        var newSku = sku.map((item) => {
-          return {
-            productSKUID: item.productSKUID,
-            price: item.price,
-            priceBefore: item.priceBefore,
-          };
-        });
-      }
+    const products = await Promise.all(
+      resultProduct.recordset.map(async (record) => {
+        const [media, sku] = await Promise.all([
+          getMediasByProductId(record.productID),
+          skus(record.productID),
+        ]);
 
-      var product = {
-        productID: resultProduct.recordset[i].id,
-        productName: resultProduct.recordset[i].name,
-        productDescription: resultProduct.recordset[i].description,
-        medias: media,
-        productSKU: newSku,
-      };
+        const newSku = Array.isArray(sku)
+          ? sku.map((item) => ({
+              productSKUID: item.productSKUID,
+              price: item.price,
+              priceBefore: item.priceBefore,
+            }))
+          : [];
 
-      products.push(product);
-    }
+        return {
+          productID: record.productID,
+          productName: record.productName,
+          productDescription: record.productDescription,
+          medias: media,
+          productSKU: newSku,
+        };
+      })
+    );
 
-    var responseData = {
+    const responseData = {
       result: products,
       total: 10, // Set mặc định vì chưa biết total này là gì
     };
-    // var key = request.route.path;
-    // set(key, responseData);
+
     response.status(200).json(responseData);
   } catch (error) {
     console.log(error);
     response.status(500).json({
       error: "Internal Server Error",
+      details: error.message,
     });
   }
 });
 
 router.get("/get-list-good-price-today", get, async (request, response) => {
   try {
-    var offset = request.query.offset;
-    var limit = request.query.limit;
+    const offset = parseInt(request.query.offset) || 1;
+    const limit = parseInt(request.query.limit) || 10;
 
-    if (offset == null || offset < 1) {
-      offset = 1;
-    }
+    const queryProduct = `
+      SELECT 
+        p.id AS productID,
+        p.name AS productName,
+        p.description AS productDescription,
+        m.id AS mediaID,
+        m.linkString AS mediaLink,
+        m.title AS mediaTitle,
+        m.description AS mediaDescription,
+        ps.id AS productSKUID,
+        ps.price AS price,
+        ps.priceBefore AS priceBefore
+      FROM 
+        Product p
+        LEFT JOIN Media m ON p.id = m.id_product
+        LEFT JOIN ProductSku ps ON p.id = ps.idProduct
+      ORDER BY 
+        p.createdDate DESC
+      OFFSET 
+        @offset ROWS FETCH NEXT @limit ROWS ONLY
+    `;
 
-    if (limit == null) {
-      limit = 10;
-    }
-
-    offset = (offset - 1) * limit;
-
-    const queryProduct =
-      "SELECT * FROM (SELECT TOP 10 * FROM Product ORDER BY createdDate DESC) AS subproduct ORDER BY name OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY";
     const resultProduct = await database
       .request()
-      .input("offset", parseInt(offset))
-      .input("limit", parseInt(limit))
+      .input("offset", (offset - 1) * limit)
+      .input("limit", limit)
       .query(queryProduct);
-    var products = [];
 
-    for (var i = 0; i < resultProduct.recordset.length; i++) {
-      var media = await getMediasByProductId(resultProduct.recordset[i].id);
-      var sku = await skus(resultProduct.recordset[i].id);
-      if (Array.isArray(sku)) {
-        var newSku = sku.map((item) => {
-          return {
-            productSKUID: item.productSKUID,
-            price: item.price,
-            priceBefore: item.priceBefore,
-          };
-        });
-      }
+    const products = await Promise.all(
+      resultProduct.recordset.map(async (record) => {
+        const [media, sku] = await Promise.all([
+          getMediasByProductId(record.productID),
+          skus(record.productID),
+        ]);
 
-      var product = {
-        productID: resultProduct.recordset[i].id,
-        productName: resultProduct.recordset[i].name,
-        productDescription: resultProduct.recordset[i].description,
-        medias: media,
-        productSKU: newSku,
-      };
+        const newSku = Array.isArray(sku)
+          ? sku.map((item) => ({
+              productSKUID: item.productSKUID,
+              price: item.price,
+              priceBefore: item.priceBefore,
+            }))
+          : [];
 
-      products.push(product);
-    }
+        return {
+          productID: record.productID,
+          productName: record.productName,
+          productDescription: record.productDescription,
+          medias: media,
+          productSKU: newSku,
+        };
+      })
+    );
 
-    var responseData = {
+    const responseData = {
       result: products,
       total: 10, // Set mặc định vì chưa biết total này là gì
     };
-    // var key = request.route.path;
-    // set(key, responseData);
+    let key = request.route.path + JSON.stringify(request.query);
+    set(key, responseData);
     response.status(200).json(responseData);
   } catch (error) {
     console.log(error);
     response.status(500).json({
       error: "Internal Server Error",
+      details: error.message,
     });
   }
 });
 
-router.get("/get-list-same-category", async (request, response) => {
+router.get("/get-list-same-category", get, async (request, response) => {
   try {
-    var offset = request.query.offset;
-    var limit = request.query.limit;
-    var productID = request.query.productID;
-    var productCategoryID = request.query.productCategoryID;
+    const offset = parseInt(request.query.offset) || 1;
+    const limit = parseInt(request.query.limit) || 10;
+    const productID = request.query.productID;
+    const productCategoryID = request.query.productCategoryID;
 
-    var offset = request.query.offset;
-    var limit = request.query.limit;
+    const queryProduct = `
+      SELECT 
+        p.id AS productID,
+        p.name AS productName,
+        p.description AS productDescription,
+        m.id AS mediaID,
+        m.linkString AS mediaLink,
+        m.title AS mediaTitle,
+        m.description AS mediaDescription,
+        ps.id AS productSKUID,
+        ps.price AS price,
+        ps.priceBefore AS priceBefore
+      FROM 
+        Product p
+        LEFT JOIN Media m ON p.id = m.id_product
+        LEFT JOIN ProductSku ps ON p.id = ps.idProduct
+      WHERE 
+        p.id != @productID AND p.id_Category = @categoryID
+      ORDER BY 
+        p.name
+      OFFSET 
+        @offset ROWS FETCH NEXT @limit ROWS ONLY
+    `;
 
-    if (offset == null || offset < 1) {
-      offset = 1;
-    }
-
-    if (limit == null) {
-      limit = 10;
-    }
-
-    offset = (offset - 1) * limit;
-
-    const queryProduct =
-      "SELECT * FROM Product WHERE id != @productID AND id_Category = @categoryID ORDER BY name OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY";
     const resultProduct = await database
       .request()
-      .input("offset", parseInt(offset))
-      .input("limit", parseInt(limit))
+      .input("offset", (offset - 1) * limit)
+      .input("limit", limit)
       .input("productID", productID)
       .input("categoryID", productCategoryID)
       .query(queryProduct);
-    var products = [];
 
-    for (var i = 0; i < resultProduct.recordset.length; i++) {
-      var media = await getMediasByProductId(resultProduct.recordset[i].id);
-      var sku = await skus(resultProduct.recordset[i].id);
-      if (Array.isArray(sku)) {
-        var newSku = sku.map((item) => {
-          return {
-            productSKUID: item.productSKUID,
-            price: item.price,
-            priceBefore: item.priceBefore,
-          };
-        });
-      }
+    const products = await Promise.all(
+      resultProduct.recordset.map(async (record) => {
+        const [media, sku] = await Promise.all([
+          getMediasByProductId(record.productID),
+          skus(record.productID),
+        ]);
 
-      var product = {
-        productID: resultProduct.recordset[i].id,
-        productName: resultProduct.recordset[i].name,
-        productDescription: resultProduct.recordset[i].description,
-        medias: media,
-        productSKU: newSku,
-      };
+        const newSku = Array.isArray(sku)
+          ? sku.map((item) => ({
+              productSKUID: item.productSKUID,
+              price: item.price,
+              priceBefore: item.priceBefore,
+            }))
+          : [];
 
-      products.push(product);
-    }
+        return {
+          productID: record.productID,
+          productName: record.productName,
+          productDescription: record.productDescription,
+          medias: media,
+          productSKU: newSku,
+        };
+      })
+    );
 
-    var responseData = {
+    const responseData = {
       result: products,
       total: 10, // Set mặc định vì chưa biết total này là gì
     };
-    // var key = request.route.path;
-    // set(key, responseData);
-
+    let key = request.route.path + JSON.stringify(request.query);
+    set(key, responseData);
     response.status(200).json(responseData);
   } catch (error) {
     console.log(error);
     response.status(500).json({
       error: "Internal Server Error",
+      details: error.message,
     });
   }
 });
