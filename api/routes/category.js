@@ -12,6 +12,44 @@ const firebase = require("../../firebase.js");
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage }).single("file");
 
+const redisClient = require("../../middleware/redisClient");
+const set = (key, value) => {
+  redisClient.set(key, JSON.stringify(value), "EX", 3600);
+};
+
+const get = async (request, response, next) => {
+  let key = request.route.path + JSON.stringify(request.query);
+  console.log("HLSHOP");
+  console.log(key);
+  let headersSent = false; // Cờ để kiểm tra xem header đã được gửi đi chưa
+
+  redisClient.on("error", (error) => {
+    console.error("Redis connection error:", error);
+    if (!headersSent) {
+      response.status(500).json({ error: "Internal Server Error" });
+      headersSent = true;
+    }
+  });
+
+  redisClient.get(key, (error, data) => {
+    if (error) {
+      if (!headersSent) {
+        response.status(400).send(error);
+        headersSent = true;
+      }
+    } else {
+      if (data !== null) {
+        if (!headersSent) {
+          response.status(200).send(JSON.parse(data));
+          headersSent = true;
+        }
+      } else {
+        next();
+      }
+    }
+  });
+};
+
 router.post(
   "/create-category",
   upload,
@@ -177,50 +215,34 @@ router.delete(
   }
 );
 
-router.get("/get-list", async (request, response) => {
+router.get("/get-list", get, async (request, response) => {
   try {
-    var offset = request.query.offset;
-    var limit = request.query.limit;
+    const offset = request.query.offset || 1;
+    const limit = request.query.limit || 10;
 
-    console.log(typeof page);
-    console.log(typeof pageSize);
-    if (offset == null || offset < 1) {
-      offset = 1;
-    }
+    const [categoryResult, ResultTotalCategory] = await Promise.all([
+      database.request()
+        .input("page", parseInt((offset - 1) * limit))
+        .input("pageSize", parseInt(limit))
+        .query("SELECT * FROM Category ORDER BY name OFFSET @page ROWS FETCH NEXT @pageSize ROWS ONLY"),
 
-    if (limit == null) {
-      limit = 10;
-    }
+      database.request()
+        .query("SELECT COUNT(*) AS TotalRecords FROM category;")
+    ]);
 
-    offset = (offset - 1) * limit;
+    const results = categoryResult.recordset.map(category => ({
+      productCategoryID: category.id,
+      productCategoryName: category.name,
+      linkString: category.image,
+    }));
 
-    const queryCategory =
-      "SELECT * FROM Category ORDER BY name OFFSET @page ROWS FETCH NEXT @pageSize ROWS ONLY";
-    const categoryResult = await database
-      .request()
-      .input("page", parseInt(offset))
-      .input("pageSize", parseInt(limit))
-      .query(queryCategory);
-
-    const queryTotalCategory = "SELECT COUNT(*) AS TotalRecords FROM category;";
-    const ResultTotalCategory = await database
-      .request()
-      .query(queryTotalCategory);
-
-    var results = [];
-    for (var i = 0; i < categoryResult.recordset.length; i++) {
-      var result = {
-        productCategoryID: categoryResult.recordset[i].id,
-        productCategoryName: categoryResult.recordset[i].name,
-        linkString: categoryResult.recordset[i].image,
-      };
-
-      results.push(result);
-    }
-    response.status(200).json({
+    const responseData = {
       result: results,
       total: ResultTotalCategory.recordset[0].TotalRecords,
-    });
+    }
+    let key = request.route.path + JSON.stringify(request.query);
+    set(key, responseData);
+    response.status(200).json(responseData);
   } catch (error) {
     console.log(error);
     response.status(500).json({
@@ -230,95 +252,64 @@ router.get("/get-list", async (request, response) => {
 });
 
 //Lấy những sản phẩm của 1 categoty cụ thể
-router.get("/detail", async (request, response) => {
+router.get("/detail", get, async (request, response) => {
   try {
-    var offset = request.query.offset;
-    var limit = request.query.limit;
+    const offset = request.query.offset || 1;
+    const limit = request.query.limit || 10;
+    const idCategory = request.query.productCategoryID;
 
-    if (offset == null || offset < 1) {
-      offset = 1;
-    }
+    const [resultProduct, resultCategory, ResultTotalCategory] = await Promise.all([
+      database.request()
+        .input("offset", parseInt((offset - 1) * limit))
+        .input("limit", parseInt(limit))
+        .input("idCategory", idCategory)
+        .query("SELECT * FROM Product WHERE id_Category = @idCategory ORDER BY name OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY"),
 
-    if (limit == null) {
-      limit = 10;
-    }
+      database.request()
+        .input("idCategory", idCategory)
+        .query("SELECT * FROM Category WHERE id = @idCategory"),
 
-    offset = (offset - 1) * limit;
-    var idCategory = request.query.productCategoryID;
+      database.request().query("SELECT COUNT(*) AS TotalRecords FROM category;")
+    ]);
 
-    const queryProduct =
-      "SELECT * FROM Product WHERE id_Category = @idCategory ORDER BY name OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY";
-    const resultProduct = await database
-      .request()
-      .input("offset", parseInt(offset))
-      .input("limit", parseInt(limit))
-      .input("idCategory", idCategory)
-      .query(queryProduct);
+    const products = await Promise.all(resultProduct.recordset.map(async (product) => {
+      const [resultMedia, resultProductSku] = await Promise.all([
+        database.request()
+          .input("idProduct", product.id)
+          .query("SELECT * FROM Media WHERE id_product = @idProduct"),
 
-    const queryCategory = "SELECT * FROM Category WHERE id = @idCategory";
-    const resultCategory = await database
-      .request()
-      .input("idCategory", idCategory)
-      .query(queryCategory);
+        database.request()
+          .input("idProduct", product.id)
+          .query("SELECT * from ProductSku WHERE idProduct =  @idProduct")
+      ]);
 
-    const queryTotalCategory = "SELECT COUNT(*) AS TotalRecords FROM category;";
-    const ResultTotalCategory = await database
-      .request()
-      .query(queryTotalCategory);
-    var products = [];
+      const medias = resultMedia.recordset.map(media => ({
+        mediaID: media.id,
+        linkString: media.linkString,
+        title: media.title,
+        description: media.description,
+        objectRefType: 0,
+        mediaType: 0,
+        objectRefID: "1"
+      }));
 
-    for (var i = 0; i < resultProduct.recordset.length; i++) {
-      var medias = [];
-      var skus = [];
+      const skus = resultProductSku.recordset.map(sku => ({
+        productSKUID: sku.id,
+        productVersionID: 1,
+        price: sku.price,
+        priceBefore: sku.priceBefore
+      }));
 
-      var queryMedia = "SELECT * FROM Media WHERE id_product = @idProduct";
-      var resultMedia = await database
-        .request()
-        .input("idProduct", resultProduct.recordset[0].id)
-        .query(queryMedia);
-
-      var queryProductSku =
-        "SELECT* from Product_sku WHERE idProduct =  @idProduct";
-      var resultProductSku = await database
-        .request()
-        .input("idProduct", resultProduct.recordset[0].id)
-        .query(queryProductSku);
-
-      for (var x = 0; x < resultMedia.recordset.length; x++) {
-        var media = {};
-        media["mediaID"] = resultMedia.recordset[x].id;
-        media["linkString"] = resultMedia.recordset[x].linkString;
-        media["title"] = resultMedia.recordset[x].title;
-        media["description"] = resultMedia.recordset[x].description;
-        media["objectRefType"] = 0;
-        media["mediaType"] = 0;
-        media["objectRefID"] = "1";
-
-        medias.push(media);
-      }
-
-      for (var y = 0; y < resultProductSku.recordset.length; y++) {
-        var sku = {};
-        sku["productSKUID"] = resultProductSku.recordset[y].id;
-        sku["productVersionID"] = 1; //Set mặc định vì chưa biết nó là gì
-        sku["price"] = resultProductSku.recordset[y].price;
-        sku["priceBefore"] = resultProductSku.recordset[y].priceBefore;
-
-        skus.push(sku);
-      }
-
-      var product = {
-        productID: resultProduct.recordset[i].id,
-        productName: resultProduct.recordset[i].name,
-        productDescription: resultProduct.recordset[i].description,
+      return {
+        productID: product.id,
+        productName: product.name,
+        productDescription: product.description,
         medias: medias,
         productSKU: skus,
       };
+    }));
 
-      products.push(product);
-    }
-
-    response.status(200).json({
+    const responseData = {
       result: products,
       total: ResultTotalCategory.recordset[0].TotalRecords,
       productCategory: {
@@ -326,7 +317,10 @@ router.get("/detail", async (request, response) => {
         productCategoryName: resultCategory.recordset[0].name,
         linkString: resultCategory.recordset[0].image,
       },
-    });
+    };
+    let key = request.route.path + JSON.stringify(request.query);
+    set(key, responseData);
+    response.status(200).json(responseData);
   } catch (error) {
     console.log(error);
     response.status(500).json({
