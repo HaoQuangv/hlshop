@@ -2,7 +2,7 @@ const express = require("express");
 var cors = require("cors");
 const bodyParser = require("body-parser");
 require("dotenv").config();
-
+const path = require("path");
 const app = express();
 app.use(cors());
 
@@ -23,6 +23,8 @@ const port = 80;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.set("view engine", "ejs");
+app.set("views", path.join(__dirname, "views"));
 
 //use method from file
 app.use("/api/hlshop/auth", accountRouter);
@@ -36,9 +38,9 @@ app.use("/api/hlshop/district", districtRouter);
 app.use("/api/hlshop/order", orderRouter);
 app.use("/api/hlshop/ward", wardRouter);
 app.use("/api/hlshop/feeship", feeShipRouter);
-// app.get('/', function (request, response) {
-//     response.send("Hello word, this is group 08")
-// })
+// app.get("/", function (request, response) {
+//   response.send("Hello word, this is hlshop");
+// });
 
 const router = require("express").Router();
 const swaggerUi = require("swagger-ui-express");
@@ -49,3 +51,5 @@ router.get("/api-docs", swaggerUi.setup(swaggerDocument));
 
 app.use("/", router);
 app.listen(port, () => console.log(`Server is running on port ${port}`));
+
+module.exports = app;

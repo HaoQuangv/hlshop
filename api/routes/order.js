@@ -1,13 +1,17 @@
 const express = require("express");
+const app = require("../../index");
 const axios = require("axios");
 const router = express.Router();
 const db_action = require("../../utils/db_action");
 const { token, getInfoService } = require("../../utils/shipping");
+const { createMomoPayment } = require("../../utils/momo_payment");
 const sql = require("mssql");
 const database = require("../../config");
 
 const checkAuth = require("../../middleware/check_auth");
 const checkRole = require("../../middleware/check_role_user");
+const e = require("express");
+const { get } = require("./account");
 
 router.post("/create", checkAuth, checkRole, async (request, response) => {
   let transaction = new sql.Transaction(database);
@@ -57,6 +61,9 @@ router.post("/create", checkAuth, checkRole, async (request, response) => {
           feeText,
           totalOrder
         );
+        if (paymentMethod === 1) {
+          await createPaymentOrder(orderID, totalOrder, DateNow, transaction);
+        }
         await createOrderTracking(orderID, transaction, DateNow);
 
         await transaction.commit();
@@ -163,7 +170,23 @@ async function getAddressReceive(receiverAddressID, idAccount) {
   }
 }
 
-async function createPaymentOrder(orderID, paymentMethod, transaction) {}
+async function createPaymentOrder(orderID, amount, created, transaction) {
+  try {
+    const query = `
+        INSERT INTO Payment_order (orderId, amount, created, finish_pay)
+        VALUES (@orderID, @amount, @created, @finish_pay);
+        `;
+    await transaction
+      .request()
+      .input("orderID", orderID)
+      .input("amount", amount)
+      .input("created", created)
+      .input("finish_pay", 0)
+      .query(query);
+  } catch (error) {
+    throw "Error in createPaymentOrder";
+  }
+}
 
 async function deleteCartItem(cartID, userID, transaction) {
   try {
@@ -659,21 +682,222 @@ router.post(
     }
   }
 );
-
-router.get("/test", checkAuth, checkRole, async (request, response) => {
+router.get("/payment-success", async (req, res) => {
+  // Lấy dữ liệu từ request
+  const {
+    partnerCode,
+    orderId,
+    requestId,
+    amount,
+    orderInfo,
+    orderType,
+    transId,
+    resultCode,
+    message,
+    payType,
+    responseTime,
+    extraData,
+    signature,
+    paymentOption,
+  } = req.query;
+  console.log(req.query);
   try {
-    response.status(200).json();
-  } catch (error) {
-    if (error.code === "EREQUEST") {
-      return response.status(500).json({
-        error: "",
-      });
+    const paymentOrder = await getPaymentOrderbyOrderID(orderId);
+    if (
+      paymentOrder.finishPay === true ||
+      paymentOrder.amount.toString() !== amount ||
+      message !== "Successful." ||
+      resultCode !== "0" ||
+      paymentOrder.requestId !== requestId
+    ) {
+      throw "Error in payment confirm";
     }
-
-    response.status(500).json({
-      error: "Internal Server Error",
+    await updatePaymentOrderFinishPay(orderId);
+    res.render("payment-success", {
+      orderId: orderId,
+      amount: amount,
+    });
+  } catch (error) {
+    res.status(500).render("payment-error", {
+      message: error,
     });
   }
 });
+
+async function updatePaymentOrderFinishPay(orderID) {
+  try {
+    const query = `
+        UPDATE Payment_order
+        SET finish_pay = @finishPay
+        WHERE orderId = @orderID;
+    `;
+    await database
+      .request()
+      .input("orderID", orderID)
+      .input("finishPay", true)
+      .query(query);
+  } catch (error) {
+    throw "Error in payment confirm";
+  }
+}
+
+async function getPaymentOrderbyOrderID(orderID, idAccount) {
+  try {
+    const query = `
+    SELECT
+    po.orderId,
+    po.requestId,
+    po.amount,
+    po.signature,
+    po.finish_pay AS finishPay
+    FROM Payment_order AS po
+    WHERE po.orderId = @orderID;
+    `;
+    const result = await database
+      .request()
+      .input("orderID", orderID)
+      .query(query);
+    if (result.recordset.length === 0) {
+      throw "Error in payment confirm";
+    }
+    return result.recordset[0];
+  } catch (error) {
+    throw error;
+  }
+}
+
+router.post(
+  "/create-order-qr-payment-momo",
+  checkAuth,
+  checkRole,
+  async (request, response) => {
+    let transaction = new sql.Transaction(database);
+    try {
+      const { orderID } = request.query;
+      const DateNow = new Date();
+      const orderDetail = await getOrderPayment(orderID, request.userData.uuid);
+      const isExpired = isCreatedLinkExpired(orderDetail.createdLink);
+      if (orderDetail.paymentMethod !== 1 || orderDetail.finishPay !== false) {
+        throw "Payment method is not momo or order is paid";
+      } else {
+        if (orderDetail.deeplink !== null && !isExpired) {
+          let result = {
+            orderId: orderDetail.orderId,
+            createdLink: orderDetail.createdLink,
+            deeplink: orderDetail.deeplink,
+          };
+          response.status(200).json(result);
+          return;
+        } else {
+          var momoPaymentResult = await createMomoPayment(
+            orderDetail.orderID,
+            Number(orderDetail.amount)
+          );
+          if (momoPaymentResult.resultCode === 0) {
+            //goi ham update
+            await updatePaymentOrder(
+              momoPaymentResult.orderId,
+              momoPaymentResult.requestId,
+              momoPaymentResult.payUrl,
+              momoPaymentResult.qrCodeUrl,
+              momoPaymentResult.deeplink,
+              DateNow,
+              momoPaymentResult.signature
+            );
+          }
+          let result = {
+            orderId: momoPaymentResult.orderId,
+            createdLink: DateNow,
+            deeplink: momoPaymentResult.deeplink,
+          };
+          response.status(200).json(result);
+        }
+      }
+    } catch (error) {
+      if (error.code === "EREQUEST") {
+        return response.status(500).json({
+          error: "",
+        });
+      }
+
+      response.status(500).json({
+        error: error,
+      });
+    }
+  }
+);
+function isCreatedLinkExpired(createdLink) {
+  const currentDate = new Date();
+  const createdLinkDate = new Date(createdLink);
+  const timeDifference = currentDate - createdLinkDate;
+  const daysDifference = timeDifference / (1000 * 60 * 60 * 24);
+  return daysDifference >= 7;
+}
+async function updatePaymentOrder(
+  orderID,
+  requestId,
+  payUrl,
+  qrCodeUrl,
+  deeplink,
+  createdLink,
+  signature
+) {
+  try {
+    const query = `
+        UPDATE Payment_order
+        SET payUrl = @payUrl,
+        requestId = @requestId,
+        qrCodeUrl = @qrCodeUrl,
+        deeplink = @deeplink,
+        createdLink = @createdLink,
+        signature = @signature
+        WHERE orderId = @orderID;
+    `;
+    await database
+      .request()
+      .input("orderID", orderID)
+      .input("requestId", requestId)
+      .input("payUrl", payUrl)
+      .input("qrCodeUrl", qrCodeUrl)
+      .input("deeplink", deeplink)
+      .input("createdLink", createdLink)
+      .input("signature", signature)
+      .query(query);
+  } catch (error) {
+    throw "Error in updatePaymentOrder";
+  }
+}
+
+async function getOrderPayment(orderID, idAccount) {
+  try {
+    const query = `
+    SELECT
+    o.id AS orderID,
+    o.paymentMethod,
+    o.orderStatus,
+    o.totalPriceOrder,
+		po.amount,
+		po.orderId,
+		po.deeplink,
+    po.finish_pay AS finishPay,
+		po.createdLink
+    FROM [User] AS u
+    JOIN [Order] AS o ON u.id = o.idUser
+    LEFT JOIN Payment_order AS po ON o.id = po.orderId
+    WHERE u.id_account = @idAccount AND o.id = @orderID;
+    `;
+    const result = await database
+      .request()
+      .input("idAccount", idAccount)
+      .input("orderID", orderID)
+      .query(query);
+    if (result.recordset.length === 0) {
+      throw "Order not exist";
+    }
+    return result.recordset[0];
+  } catch (error) {
+    throw error;
+  }
+}
 
 module.exports = router;

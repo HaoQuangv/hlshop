@@ -1,0 +1,50 @@
+<!-- payment-error.ejs -->
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Error</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f8d7da;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+
+        h1 {
+            color: #721c24;
+        }
+
+        p {
+            font-size: 1.2em;
+            color: #721c24;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        li {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Payment Error</h1>
+    <p>Error Details:</p>
+    <ul>
+        <li>Error Message: <%= message %>
+        </li>
+        <!-- Add other details you want to display -->
+    </ul>
+</body>
+
+</html>
