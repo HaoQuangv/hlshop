@@ -778,6 +778,16 @@
         }
       }
     },
+    "/api/hlshop/product-categorykey": {
+      "get": {
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/api/hlshop/product-category/create-category": {
       "post": {
         "description": "",
@@ -908,6 +918,9 @@
           "200": {
             "description": "OK"
           },
+          "400": {
+            "description": "Bad Request"
+          },
           "500": {
             "description": "Internal Server Error"
           }
@@ -937,6 +950,9 @@
         "responses": {
           "200": {
             "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request"
           },
           "500": {
             "description": "Internal Server Error"
@@ -971,7 +987,19 @@
                 "cityName": {
                   "example": "any"
                 },
+                "cityID": {
+                  "example": "any"
+                },
                 "districtName": {
+                  "example": "any"
+                },
+                "districtID": {
+                  "example": "any"
+                },
+                "wardName": {
+                  "example": "any"
+                },
+                "wardID": {
                   "example": "any"
                 },
                 "addressDetail": {
@@ -1027,13 +1055,25 @@
                 "cityName": {
                   "example": "any"
                 },
+                "cityID": {
+                  "example": "any"
+                },
                 "districtName": {
+                  "example": "any"
+                },
+                "districtID": {
                   "example": "any"
                 },
                 "addressDetail": {
                   "example": "any"
                 },
                 "addressLabel": {
+                  "example": "any"
+                },
+                "wardName": {
+                  "example": "any"
+                },
+                "wardID": {
                   "example": "any"
                 }
               }
@@ -1057,7 +1097,7 @@
       }
     },
     "/api/hlshop/receiver-address/delete": {
-      "delete": {
+      "post": {
         "description": "",
         "parameters": [
           {
@@ -1374,6 +1414,9 @@
           "200": {
             "description": "OK"
           },
+          "400": {
+            "description": "Bad Request"
+          },
           "500": {
             "description": "Internal Server Error"
           }
@@ -1398,6 +1441,9 @@
         "responses": {
           "200": {
             "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request"
           },
           "500": {
             "description": "Internal Server Error"
@@ -1490,6 +1536,9 @@
           "200": {
             "description": "OK"
           },
+          "400": {
+            "description": "Bad Request"
+          },
           "500": {
             "description": "Internal Server Error"
           }
@@ -1510,9 +1559,6 @@
           "200": {
             "description": "OK"
           },
-          "201": {
-            "description": "Created"
-          },
           "500": {
             "description": "Internal Server Error"
           }
@@ -1530,8 +1576,8 @@
           }
         ],
         "responses": {
-          "201": {
-            "description": "Created"
+          "200": {
+            "description": "OK"
           },
           "500": {
             "description": "Internal Server Error"
@@ -1554,7 +1600,7 @@
             "schema": {
               "type": "object",
               "properties": {
-                "idProductSku": {
+                "productSKUID": {
                   "example": "any"
                 },
                 "quantity": {
@@ -1565,8 +1611,11 @@
           }
         ],
         "responses": {
-          "201": {
-            "description": "Created"
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request"
           },
           "401": {
             "description": "Unauthorized"
@@ -1592,7 +1641,7 @@
             "schema": {
               "type": "object",
               "properties": {
-                "idCart": {
+                "cartID": {
                   "example": "any"
                 },
                 "quantity": {
@@ -1606,8 +1655,14 @@
           "200": {
             "description": "OK"
           },
+          "400": {
+            "description": "Bad Request"
+          },
           "401": {
             "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
           },
           "500": {
             "description": "Internal Server Error"
@@ -1651,6 +1706,11 @@
             "name": "limit",
             "in": "query",
             "type": "string"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "type": "string"
           }
         ],
         "responses": {
@@ -1671,11 +1731,345 @@
             "name": "cityID",
             "in": "query",
             "type": "string"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "type": "string"
           }
         ],
         "responses": {
           "200": {
             "description": "OK"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/hlshop/order/create": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "receiverAddressID": {
+                  "example": "any"
+                },
+                "paymentMethod": {
+                  "example": "any"
+                },
+                "carts": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/hlshop/order/get-list": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "orderStatus",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/hlshop/order/get-detail": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "orderID",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/hlshop/order/get-order-status-tracking": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "orderID",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/hlshop/order/get-count-list": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/hlshop/order/test-update-order-status": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/hlshop/order/payment-success": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "partnerCode",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "orderId",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "requestId",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "amount",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "orderInfo",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "orderType",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "transId",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "resultCode",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "message",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "payType",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "responseTime",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "extraData",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "signature",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "paymentOption",
+            "in": "query",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/hlshop/order/create-order-qr-payment-momo": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "orderID",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/hlshop/ward/get-list-by-district-id": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "districtID",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/hlshop/feeship/get-shipping-order-fee": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
           },
           "500": {
             "description": "Internal Server Error"
