@@ -9,8 +9,10 @@ async function createMomoPayment(orderId, amount) {
   const requestId = "RD" + orderId + Date.now();
   const lang = "vi";
   const orderInfo = "Thanh toán hóa đơn của HLSHOP: " + orderId;
-  const redirectUrl = "http://localhost/api/hlshop/order/payment-success"; //(172.20.10.3) thay cho localhost
-  const ipnUrl = "http://localhost/api/hlshop/order/payment-success"; //172.20.10.3
+  const redirectUrl =
+    "https://hl-shop.azurewebsites.net/api/hlshop/order/payment-success"; //(172.20.10.3) thay cho localhost
+  const ipnUrl =
+    "https://hl-shop.azurewebsites.net/api/hlshop/order/payment-success"; //172.20.10.3
   const requestType = "captureWallet";
   const extraData = "";
 
