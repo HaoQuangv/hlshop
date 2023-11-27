@@ -61,9 +61,8 @@ router.post("/create", checkAuth, checkRole, async (request, response) => {
           feeText,
           totalOrder
         );
-        if (paymentMethod === 1) {
-          await createPaymentOrder(orderID, totalOrder, DateNow, transaction);
-        }
+        await createPaymentOrder(orderID, totalOrder, DateNow, transaction);
+
         await createOrderTracking(orderID, transaction, DateNow);
 
         await transaction.commit();
@@ -81,7 +80,6 @@ router.post("/create", checkAuth, checkRole, async (request, response) => {
       });
     return {};
   } catch (error) {
-    console.log(error);
     if (error.code === "EREQUEST") {
       return response.status(500).json({
         error: "Database error",
@@ -121,7 +119,6 @@ async function getFeeOrder(toDistrictID, toWardCode, insuranceValue) {
     };
     const response = await axios.post(apiUrl, requestBody, { headers });
     var feeShip = response.data.data.total;
-    console.log("feeShip", feeShip);
     return feeShip;
   } catch (error) {
     throw error;
@@ -323,7 +320,6 @@ async function mapCarttoOrderItem(cartID, orderID, userID, transaction) {
         .input("orderItemJsonToString", JSON.stringify(orderItem))
         .input("orderItemID", orderItem.orderItemID)
         .query(queryUpdateOrderItem);
-      console.log(result.recordset[0]);
       return result.recordset[0].price * result.recordset[0].quantity;
     } else {
       throw "Not Exist cartID";
@@ -415,10 +411,12 @@ async function getListOrderByStatus(orderStatus, idAccount) {
           o.paymentMethod,
           o.orderStatus,
           o.orderShippingFee,
+					po.finish_pay AS finishPay,
           oi.orderItemJsonToString AS dataOrderItem
           FROM [User] AS u
           JOIN [Order] AS o ON u.id = o.idUser
           JOIN Order_item AS oi ON oi.orderId = o.id
+					LEFT JOIN Payment_order AS po ON po.orderId = o.id
           WHERE u.id_account = @idAccount AND o.orderStatus = @orderStatus
           ORDER BY o.createdDate DESC;
           `;
@@ -510,9 +508,11 @@ async function getOrderDetailByID(orderID) {
     o.paymentMethod,
     o.orderStatus,
     o.orderShippingFee,
+    po.finish_pay AS finishPay,
     oi.orderItemJsonToString AS dataOrderItem
     FROM [Order] AS o
     JOIN Order_item AS oi ON o.id = oi.orderId
+		LEFT JOIN Payment_order AS po ON po.orderId = o.id
     WHERE o.id = @orderID;
     `;
     const result = await database
@@ -700,7 +700,6 @@ router.get("/payment-success", async (req, res) => {
     signature,
     paymentOption,
   } = req.query;
-  console.log(req.query);
   try {
     const paymentOrder = await getPaymentOrderbyOrderID(orderId);
     if (
