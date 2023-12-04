@@ -5,7 +5,7 @@ const router = express.Router();
 const database = require("../../config");
 
 const checkAuth = require("../../middleware/check_auth");
-const checkRole = require("../../middleware/check_role_admin");
+const checkRoleAdmin = require("../../middleware/check_role_admin");
 const redisClient = require("../../middleware/redisClient");
 
 require("dotenv").config();
@@ -58,7 +58,7 @@ router.post(
   "/create-media-product",
   upload.array("file", 9),
   checkAuth,
-  checkRole,
+  checkRoleAdmin,
   async (request, response) => {
     try {
       const idProduct = request.body.idProduct;
@@ -150,7 +150,7 @@ router.post(
   "/create-media-attribute",
   upload.single("file"),
   checkAuth,
-  checkRole,
+  checkRoleAdmin,
   async (request, response) => {
     try {
       const idAttribute = request.body.idAttribute;
@@ -212,7 +212,7 @@ router.post(
 router.post(
   "/create-product",
   checkAuth,
-  checkRole,
+  checkRoleAdmin,
   async (request, response) => {
     try {
       const name = request.body.name;

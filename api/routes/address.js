@@ -5,6 +5,8 @@ const database = require("../../config");
 const checkAuth = require("../../middleware/check_auth");
 const checkRole = require("../../middleware/check_role_user");
 
+const { checkAddressValidated } = require("../../utils/address_check");
+
 router.post("/add", checkAuth, checkRole, async (request, response) => {
   try {
     const receiverContactName = request.body.receiverContactName;
@@ -19,6 +21,8 @@ router.post("/add", checkAuth, checkRole, async (request, response) => {
     const addressDetail = request.body.addressDetail;
     const addressLabel = Number(request.body.addressLabel);
     var isDefault = 0;
+
+    await checkAddressValidated(cityID, districtID, wardID);
 
     const queryUser = "SELECT id FROM [User] WHERE id_account = @idAccount";
     const userResult = await database
@@ -76,8 +80,13 @@ router.post("/update", checkAuth, checkRole, async (request, response) => {
     const cityID = request.body.cityID;
     const districtName = request.body.districtName;
     const districtID = request.body.districtID;
+    const wardName = request.body.wardName;
+    const wardID = request.body.wardID;
     const addressDetail = request.body.addressDetail;
     const addressLabel = request.body.addressLabel;
+
+    await checkAddressValidated(cityID, districtID, wardID);
+
     const query = "SELECT * FROM AddressReceive WHERE id = @addressID";
     const result = await database
       .request()
@@ -110,8 +119,8 @@ router.post("/update", checkAuth, checkRole, async (request, response) => {
           .input("addressDetail", addressDetail)
           .input("addressLabel", addressLabel)
           .input("addressID", receiverAddressID)
-          .input("wardName", request.body.wardName)
-          .input("wardID", request.body.wardID)
+          .input("wardName", wardName)
+          .input("wardID", wardID)
           .input("createdDate", new Date())
           .query(queryAddress);
 
