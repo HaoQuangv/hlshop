@@ -229,109 +229,116 @@ router.get("/get-list", async (request, response) => {
   }
 });
 
-//Lấy những sản phẩm của 1 categoty cụ thể
-router.get("/detail", async (request, response) => {
+async function getListProductByCategory(idCategory) {
   try {
-    var offset = request.query.offset;
-    var limit = request.query.limit;
+    const queryProduct = `
+      SELECT 
+      p.id AS productID,
+      p.name AS productName,
+      p.description AS productDescription,
+      p.slogan AS productSlogan,
+      p.notes AS productNotes,
+      p.madeIn AS productMadeIn,
+      ps.id AS productSKUID,
+      ps.price AS price,
+      ps.priceBefore AS priceBefore,
+      m.id AS mediaID,
+      m.linkString AS linkString,
+      m.title AS title,
+      m.description AS description
+      FROM Product as p
+      JOIN ProductSku as ps ON p.id = ps.idProduct
+      JOIN Media as m ON p.id = m.id_product
+      WHERE p.id_Category = @idCategory
+      ORDER BY p.sellQuantity DESC
+    `;
 
-    if (offset == null || offset < 1) {
-      offset = 1;
-    }
-
-    if (limit == null) {
-      limit = 10;
-    }
-
-    offset = (offset - 1) * limit;
-    var idCategory = request.query.productCategoryID;
-
-    const queryProduct =
-      "SELECT * FROM Product WHERE id_Category = @idCategory ORDER BY name OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY";
-    const resultProduct = await database
+    const result = await database
       .request()
-      .input("offset", parseInt(offset))
-      .input("limit", parseInt(limit))
       .input("idCategory", idCategory)
       .query(queryProduct);
 
-    const queryCategory = "SELECT * FROM Category WHERE id = @idCategory";
-    const resultCategory = await database
-      .request()
-      .input("idCategory", idCategory)
-      .query(queryCategory);
-
-    const queryTotalCategory = "SELECT COUNT(*) AS TotalRecords FROM category;";
-    const ResultTotalCategory = await database
-      .request()
-      .query(queryTotalCategory);
-    var products = [];
-
-    for (var i = 0; i < resultProduct.recordset.length; i++) {
-      var medias = [];
-      var skus = [];
-
-      var queryMedia = "SELECT * FROM Media WHERE id_product = @idProduct";
-      var resultMedia = await database
-        .request()
-        .input("idProduct", resultProduct.recordset[0].id)
-        .query(queryMedia);
-
-      var queryProductSku =
-        "SELECT* from Product_sku WHERE idProduct =  @idProduct";
-      var resultProductSku = await database
-        .request()
-        .input("idProduct", resultProduct.recordset[0].id)
-        .query(queryProductSku);
-
-      for (var x = 0; x < resultMedia.recordset.length; x++) {
-        var media = {};
-        media["mediaID"] = resultMedia.recordset[x].id;
-        media["linkString"] = resultMedia.recordset[x].linkString;
-        media["title"] = resultMedia.recordset[x].title;
-        media["description"] = resultMedia.recordset[x].description;
-        media["objectRefType"] = 0;
-        media["mediaType"] = 0;
-        media["objectRefID"] = "1";
-
-        medias.push(media);
+    const resultMap = {};
+    result.recordset.forEach((item) => {
+      const { productID, productSKUID, mediaID } = item;
+      if (!resultMap[productID]) {
+        resultMap[productID] = {
+          productID: productID,
+          productName: item.productName,
+          productDescription: item.productDescription,
+          productSlogan: item.productSlogan,
+          productNotes: item.productNotes,
+          productMadeIn: item.productMadeIn,
+          medias: [
+            {
+              mediaID: mediaID,
+              linkString: item.linkString,
+              title: item.title ? item.title : "",
+              description: item.description ? item.description : "",
+            },
+          ],
+          productSKU: [
+            {
+              productSKUID: productSKUID,
+              price: item.price,
+              priceBefore: item.priceBefore,
+            },
+          ],
+        };
       }
-
-      for (var y = 0; y < resultProductSku.recordset.length; y++) {
-        var sku = {};
-        sku["productSKUID"] = resultProductSku.recordset[y].id;
-        sku["productVersionID"] = 1; //Set mặc định vì chưa biết nó là gì
-        sku["price"] = resultProductSku.recordset[y].price;
-        sku["priceBefore"] = resultProductSku.recordset[y].priceBefore;
-
-        skus.push(sku);
-      }
-
-      var product = {
-        productID: resultProduct.recordset[i].id,
-        productName: resultProduct.recordset[i].name,
-        productDescription: resultProduct.recordset[i].description,
-        medias: medias,
-        productSKU: skus,
-      };
-
-      products.push(product);
-    }
-
-    response.status(200).json({
-      result: products,
-      total: ResultTotalCategory.recordset[0].TotalRecords,
-      productCategory: {
-        productCategoryID: resultCategory.recordset[0].id,
-        productCategoryName: resultCategory.recordset[0].name,
-        linkString: resultCategory.recordset[0].image,
-      },
     });
+
+    const resultArray = Object.values(resultMap);
+    return resultArray;
   } catch (error) {
-    console.log(error);
-    response.status(500).json({
-      error: "Internal Server Error",
+    throw error;
+  }
+}
+
+//Lấy những sản phẩm của 1 categoty cụ thể
+router.get("/detail", async (request, response) => {
+  try {
+    var idCategory = request.query.productCategoryID;
+    var offset = parseInt(request.query.offset) || 0;
+    var limit = parseInt(request.query.limit) || 10;
+    var search = request.query.search ? request.query.search.toLowerCase() : "";
+
+    const resultArray = await getListProductByCategory(idCategory);
+
+    const filteredResult = resultArray.filter((item) => {
+      const productNameMatch = item.productName
+        ? item.productName.toLowerCase().includes(search)
+        : false;
+      const productDescriptionMatch = item.productDescription
+        ? item.productDescription.toLowerCase().includes(search)
+        : false;
+      const productSloganMatch = item.productSlogan
+        ? item.productSlogan.toLowerCase().includes(search)
+        : false;
+      const productNotesMatch = item.productNotes
+        ? item.productNotes.toLowerCase().includes(search)
+        : false;
+      const productMadeInMatch = item.productMadeIn
+        ? item.productMadeIn.toLowerCase().includes(search)
+        : false;
+      return (
+        productNameMatch ||
+        productDescriptionMatch ||
+        productSloganMatch ||
+        productNotesMatch ||
+        productMadeInMatch
+      );
     });
+
+    // Phân trang
+    const paginatedResult = filteredResult.slice(offset, offset + limit);
+
+    response
+      .status(200)
+      .json({ result: paginatedResult, total: filteredResult.length });
+  } catch (error) {
+    console.error(error);
+    response.status(500).json({ errorCode: "Internal Server Error" });
   }
 });
 module.exports = router;

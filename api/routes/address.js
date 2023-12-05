@@ -6,6 +6,7 @@ const checkAuth = require("../../middleware/check_auth");
 const checkRole = require("../../middleware/check_role_user");
 
 const { checkAddressValidated } = require("../../utils/address_check");
+const e = require("express");
 
 router.post("/add", checkAuth, checkRole, async (request, response) => {
   try {
@@ -65,7 +66,7 @@ router.post("/add", checkAuth, checkRole, async (request, response) => {
     });
   } catch (error) {
     response.status(500).json({
-      error: "Internal Server Error",
+      errorCode: "Internal Server Error",
     });
   }
 });
@@ -130,14 +131,14 @@ router.post("/update", checkAuth, checkRole, async (request, response) => {
         });
       } else {
         response.status(500).json({
-          errorCode: "MSG0071",
+          errorCode: "Receiver Address is not existing",
           message: "Receiver Address is not existing",
         });
       }
     }
   } catch (error) {
     response.status(500).json({
-      error: "Internal Server Error",
+      errorCode: "Internal Server Error",
     });
   }
 });
@@ -153,7 +154,7 @@ router.post("/delete", checkAuth, checkRole, async (request, response) => {
 
     if (result.recordset.length === 0) {
       response.status(400).json({
-        errorCode: "MSG0071",
+        errorCode: "Receiver Address is not existing",
         message: "Receiver Address is not existing",
       });
     } else {
@@ -194,8 +195,8 @@ router.post("/delete", checkAuth, checkRole, async (request, response) => {
           message: "Delete Receiver Address Success",
         });
       } else {
-        response.status(400).json({
-          errorCode: "MSG0071",
+        response.status(500).json({
+          errorCode: "Receiver Address is not existing",
           message: "Receiver Address is not existing",
         });
       }

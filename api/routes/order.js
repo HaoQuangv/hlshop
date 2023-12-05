@@ -81,6 +81,7 @@ router.post("/create", checkAuth, checkRole, async (request, response) => {
       });
     return {};
   } catch (error) {
+    console.log(error);
     if (error.code === "EREQUEST") {
       return response.status(500).json({
         message: "Database error",
@@ -433,7 +434,6 @@ async function getListOrderByStatus(orderStatus, idAccount) {
       .input("orderStatus", orderStatus)
       .query(query);
     const resultMap = {};
-
     result.recordset.forEach((item) => {
       const { orderID, dataOrderItem, orderShippingFee, ...rest } = item;
 
@@ -443,17 +443,57 @@ async function getListOrderByStatus(orderStatus, idAccount) {
       } catch (error) {
         parsedOrderShippingFee = {};
       }
+
+      let parsedDataOrderItem;
+      try {
+        parsedDataOrderItem = JSON.parse(dataOrderItem);
+      } catch (error) {
+        parsedDataOrderItem = null;
+      }
+
       if (resultMap[orderID]) {
-        resultMap[orderID].dataOrderItem.push(JSON.parse(dataOrderItem));
+        const existingDataItem = resultMap[orderID].dataOrderItem.find(
+          (existingItem) =>
+            JSON.stringify(existingItem) === JSON.stringify(parsedDataOrderItem)
+        );
+
+        if (!existingDataItem) {
+          resultMap[orderID].dataOrderItem.push(parsedDataOrderItem);
+        }
       } else {
         resultMap[orderID] = {
           orderID,
-          dataOrderItem: [JSON.parse(dataOrderItem)],
+          dataOrderItem: parsedDataOrderItem ? [parsedDataOrderItem] : [],
           orderShippingFee: parsedOrderShippingFee,
           ...rest,
         };
       }
     });
+
+    // result.recordset.forEach((item) => {
+    //   const { orderID, dataOrderItem, orderShippingFee, ...rest } = item;
+
+    //   let parsedOrderShippingFee;
+    //   try {
+    //     parsedOrderShippingFee = JSON.parse(orderShippingFee);
+    //   } catch (error) {
+    //     parsedOrderShippingFee = {};
+    //   }
+    //   if (resultMap[orderID]) {
+    //     if (
+    //       !resultMap[orderID].dataOrderItem.includes(JSON.parse(dataOrderItem))
+    //     ) {
+    //       resultMap[orderID].dataOrderItem.push(JSON.parse(dataOrderItem));
+    //     }
+    //   } else {
+    //     resultMap[orderID] = {
+    //       orderID,
+    //       dataOrderItem: [JSON.parse(dataOrderItem)],
+    //       orderShippingFee: parsedOrderShippingFee,
+    //       ...rest,
+    //     };
+    //   }
+    // });
 
     const resultArray = Object.values(resultMap);
     return resultArray;
@@ -899,7 +939,10 @@ router.post(
           if (
             currentOrderStatus === 0 ||
             currentOrderStatus === 3 ||
-            currentOrderStatus === 4
+            currentOrderStatus === 4 ||
+            orderStatus === 4 ||
+            orderStatus === 7 ||
+            orderStatus === 5
           ) {
             if (
               currentOrderStatus === 0 &&
@@ -948,6 +991,7 @@ router.post(
 
 async function updateOrderStatus(orderID, orderStatus, transaction) {
   try {
+    console.log(orderID, orderStatus);
     const query = `
         UPDATE [Order]
         SET orderStatus = @orderStatus
@@ -983,12 +1027,13 @@ async function checkOrderExistAndGetCurrentStatusAndFinishPay(
       .input("idAccount", idAccount)
       .input("orderID", orderID)
       .query(query);
+    console.log(result.recordset);
     if (result.recordset.length === 0) {
       throw "Error in checkOrderExist";
     }
     return [result.recordset[0].orderStatus, result.recordset[0].finishPay];
   } catch (error) {
-    throw "Error in checkOrderExist";
+    throw error;
   }
 }
 
@@ -1006,55 +1051,95 @@ router.post(
   checkAuth,
   checkRoleAdmin,
   async (request, response) => {
+    let transaction = new sql.Transaction(database);
     try {
       const { orderID, orderStatus } = request.body;
       const now = new Date();
-      const [currentOrderStatus, finishPay] =
-        await checkOrderExistAndGetCurrentStatusAndFinishPay(
-          orderID,
-          request.userData.uuid
-        );
+      const [currentOrderStatus, finishPay, paymentMethod] =
+        await checkOrderExistAndGetCurrentStatusAndFinishPayAdmin(orderID);
       await transaction
         .begin()
         .then(async () => {
-          if (
-            currentOrderStatus === 0 || //duyệt đơn hàng
-            currentOrderStatus === 1 || //chuyển trạng thái đang đóng gói
-            currentOrderStatus === 2 || //chuyển trạng thái đang giao hàng
-            currentOrderStatus === 3 //sau 10 ngày kể từ khi giao hàng thì admin có thể duyệt cho nó thành công, có thể trả hàng nếu giao không thành công
-          ) {
-            if (
-              currentOrderStatus === 0 &&
-              orderStatus === 6 &&
-              finishPay === false
-            ) {
-              // huy don hang
-              await updateOrderStatus(orderID, orderStatus, transaction);
-              await createOrderTracking(orderID, transaction, now, orderStatus);
-            } else if (currentOrderStatus === 0 && orderStatus === 1) {
-              // duyet don hang
-              await updateOrderStatus(orderID, orderStatus, transaction);
-              await createOrderTracking(orderID, transaction, now, orderStatus);
-            } else if (currentOrderStatus === 1 && orderStatus === 2) {
-              // chuyen trang thai dong goi
-              await updateOrderStatus(orderID, orderStatus, transaction);
-              await createOrderTracking(orderID, transaction, now, orderStatus);
-            } else if (currentOrderStatus === 2 && orderStatus === 3) {
-              // chuyen trang thai giao hang
-              await updateOrderStatus(orderID, orderStatus, transaction);
-              await createOrderTracking(orderID, transaction, now, orderStatus);
-            } else if (
-              currentOrderStatus === 3 &&
-              (orderStatus === 4 || orderStatus === 7)
-            ) {
-              // chuyen trang thai giao hang thanh cong sau 10 ngay, hoac tra hang khi giao hang that bai
-              await updateOrderStatus(orderID, orderStatus, transaction);
-              await createOrderTracking(orderID, transaction, now, orderStatus);
-            } else {
+          switch (currentOrderStatus) {
+            case 0:
+              switch (orderStatus) {
+                case 1:
+                  if (
+                    paymentMethod === 0 ||
+                    (finishPay === true && paymentMethod === 1)
+                  ) {
+                    // duyet don hang
+                    await updateOrderStatus(orderID, orderStatus, transaction);
+                    await createOrderTracking(
+                      orderID,
+                      transaction,
+                      now,
+                      orderStatus
+                    );
+                  } else if (finishPay === false && paymentMethod === 1) {
+                    throw "Don hang chua thanh toan bang momo";
+                  }
+                  break;
+                case 6:
+                  if (finishPay === false) {
+                    // huy don hang
+                    await updateOrderStatus(orderID, orderStatus, transaction);
+                    await createOrderTracking(
+                      orderID,
+                      transaction,
+                      now,
+                      orderStatus
+                    );
+                  }
+                  break;
+                default:
+                  throw "Invalid order status";
+              }
+              break;
+            case 1:
+              if (orderStatus === 2) {
+                // chuyen trang thai dong goi
+                await updateOrderStatus(orderID, orderStatus, transaction);
+                await createOrderTracking(
+                  orderID,
+                  transaction,
+                  now,
+                  orderStatus
+                );
+              } else {
+                throw "Invalid order status";
+              }
+              break;
+            case 2:
+              if (orderStatus === 3) {
+                // chuyen trang thai giao hang
+                await updateOrderStatus(orderID, orderStatus, transaction);
+                await createOrderTracking(
+                  orderID,
+                  transaction,
+                  now,
+                  orderStatus
+                );
+              } else {
+                throw "Invalid order status";
+              }
+              break;
+            case 3:
+              if (orderStatus === 4 || orderStatus === 7) {
+                // chuyen trang thai giao hang thanh cong sau 10 ngay, hoac tra hang khi giao hang that bai
+                await updateOrderStatus(orderID, orderStatus, transaction);
+                await createOrderTracking(
+                  orderID,
+                  transaction,
+                  now,
+                  orderStatus
+                );
+              } else {
+                throw "Invalid order status";
+              }
+              break;
+            default:
               throw "Invalid order status";
-            }
-          } else {
-            throw "Invalid order status";
           }
           await transaction.commit();
           response.status(200).json({
@@ -1077,5 +1162,34 @@ router.post(
     }
   }
 );
+
+async function checkOrderExistAndGetCurrentStatusAndFinishPayAdmin(orderID) {
+  try {
+    const query = `
+    SELECT
+    o.orderStatus,
+    po.finish_pay AS finishPay,
+    o.paymentMethod
+    FROM [Order] AS o
+    LEFT JOIN Payment_order AS po ON o.id = po.orderId
+    WHERE o.id = @orderID
+    `;
+    const result = await database
+      .request()
+      .input("orderID", orderID)
+      .query(query);
+    console.log(result.recordset);
+    if (result.recordset.length === 0) {
+      throw "Error in checkOrderExist";
+    }
+    return [
+      result.recordset[0].orderStatus,
+      result.recordset[0].finishPay,
+      result.recordset[0].paymentMethod,
+    ];
+  } catch (error) {
+    throw error;
+  }
+}
 
 module.exports = router;

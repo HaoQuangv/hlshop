@@ -375,186 +375,104 @@ router.post(
     }
   }
 );
-/*Bat dau chinh sua*/
-const getMediasByProductId = async (idProduct) => {
-  const queryMedia =
-    "SELECT id AS mediaID, linkString AS linkString, title AS title, description AS description FROM Media WHERE id_product = @idProduct";
-  const resultMedia = await database
-    .request()
-    .input("idProduct", idProduct)
-    .query(queryMedia);
 
-  return resultMedia.recordset;
-};
-
-const skus = async (idProduct) => {
-  const queryProductSku =
-    "SELECT id AS productSKUID, price AS price, priceBefore AS priceBefore, idAttributeValue1, idAttributeValue2 from ProductSku WHERE idProduct =  @idProduct";
-  const resultProductSku = await database
-    .request()
-    .input("idProduct", idProduct)
-    .query(queryProductSku);
-
-  return resultProductSku.recordset;
-};
-
-router.get("/get-detail", async (request, response) => {
+async function getProductDetail(idProduct) {
   try {
-    const idProduct = request.query.ProductID;
+    const queryProduct = `
+      SELECT 
+      p.id AS productID,
+      p.name AS productName,
+      p.description AS productDescription,
+      p.slogan AS productSlogan,
+      p.notes AS productNotes,
+      p.madeIn AS productMadeIn,
+      ps.id AS productSKUID,
+      ps.price AS price,
+      ps.priceBefore AS priceBefore,
+      m.id AS mediaID,
+      m.linkString AS linkString,
+      m.title AS title,
+      m.description AS description,
+      c.id AS productCategoryID,
+      c.name AS productCategoryName,
+      c.image AS linkStringCate
+      FROM Product as p
+      JOIN ProductSku as ps ON p.id = ps.idProduct
+      LEFT JOIN Media as m ON p.id = m.id_product
+      LEFT JOIN Category as c ON p.id_Category = c.id
+      WHERE p.id = @idProduct
+    `;
 
-    const media = await getMediasByProductId(idProduct);
-    const sku = await skus(idProduct);
-    // console.log(media);
-    //console.log(sku);
-    var skuss = [];
-    const queryProduct = "SELECT * FROM Product WHERE id = @idProduct";
-    const resultProduct = await database
+    const result = await database
       .request()
       .input("idProduct", idProduct)
       .query(queryProduct);
 
-    //console.log(resultProduct.recordset[0].id_Category);
-
-    const queryCategory = "SELECT * FROM Category WHERE id = @idCategory";
-    const resultCategory = await database
-      .request()
-      .input("idCategory", resultProduct.recordset[0].id_Category)
-      .query(queryCategory);
-
-    const queryUser = "SELECT * FROM [User] WHERE id = @idUser";
-    const resultUser = await database
-      .request()
-      .input("idUser", resultProduct.recordset[0].id_User)
-      .query(queryUser);
-
-    for (var x = 0; x < sku.length; x++) {
-      var image = "";
-      if (sku[x].idAttributeValue1 === null) {
-        var queryImage =
-          "SELECT linkString FROM Media WHERE id_product = @idProduct AND isDefault = 1";
-        var imageResult = await database
-          .request()
-          .input("idProduct", idProduct)
-          .query(queryImage);
-
-        image = imageResult.recordset[0].linkString;
-      } else {
-        const queryMedia =
-          "SELECT linkString FROM Media WHERE productAttributeValueID = @productAttributeValueID";
-        const resultMedia = await database
-          .request()
-          .input("productAttributeValueID", sku[x].idAttributeValue1)
-          .query(queryMedia);
-        image = resultMedia.recordset[0].linkString;
-      }
-      var sku1 = {};
-      sku1["productSKUID"] = sku[x].productSKUID;
-      sku1["linkString"] = image;
-      sku1["price"] = sku[x].price;
-      sku1["priceBefore"] = sku[x].priceBefore;
-      // sku['productVersionID'] = "1";
-      skuss.push(sku1);
-    }
-
-    var contactFullName = resultUser.recordset[0].contactFullName;
-
-    const responseData = {
-      productID: resultProduct.recordset[0].id,
-      sellerID: resultProduct.recordset[0].id_User,
-      productName: resultProduct.recordset[0].name,
-      productDescription: resultProduct.recordset[0].description,
-      productNotes: resultProduct.recordset[0].notes,
-      productSlogan: resultProduct.recordset[0].slogan,
-      productMadeIn: resultProduct.recordset[0].madeIn,
-      productUses: resultProduct.recordset[0].uses,
-      medias: media,
-      productCategory: {
-        productCategoryID: resultCategory.recordset[0].id,
-        productCategoryName: resultCategory.recordset[0].name,
-        linkString: resultCategory.recordset[0].image,
-      },
-      seller: {
-        sellerID: resultUser.recordset[0].id,
-        businessName: "HLSHOP",
-        contactFullName: contactFullName,
-        userType: 0,
-        linkString: resultUser.recordset[0].userAvatar,
-      },
-      productSKU: skuss,
-    };
-    // var key = request.route.path;
-    // set(key, responseData);
-
-    response.status(200).json(responseData);
-  } catch (error) {
-    console.log(error);
-    response.status(500).json({
-      error: "Internal Server Error",
-    });
-  }
-});
-
-router.get("/get-product-sku-detail", async (request, response) => {
-  try {
-    const idProduct = request.body.productID;
-    const attributes = request.body.attributes;
-
-    var atttributeValueID1 = "";
-    var atttributeValueID2 = "";
-    const query = "SELECT type FROM ProductAttribute WHERE id = @id";
-    for (var i = 0; i < attributes.length; i++) {
-      var result = await database
-        .request()
-        .input("id", attributes[i].attributeID)
-        .query(query);
-
-      if (result.recordset[0].type === 1) {
-        atttributeValueID1 = attributes[i].attributeValueID;
-      } else {
-        atttributeValueID2 = attributes[i].attributeValueID;
-      }
-    }
-    if (attributes.length === 0) {
-      var sku = await skus(idProduct);
-      let newSku = sku.map((item) => {
-        return {
-          productSKUID: item.productSKUID,
-          price: item.price,
-          priceBefore: item.priceBefore,
+    const resultMap = {};
+    result.recordset.forEach((item) => {
+      const { productID, productSKUID, mediaID } = item;
+      if (!resultMap[productID]) {
+        resultMap[productID] = {
+          productID: productID,
+          productName: item.productName,
+          productDescription: item.productDescription,
+          productSlogan: item.productSlogan,
+          productNotes: item.productNotes,
+          productMadeIn: item.productMadeIn,
+          medias: [],
+          seller: {
+            sellerID: "75B9BA7C-0258-4830-9F08-66B74720229B",
+            businessName: "HLSHOP",
+            contactFullName: "Bùi Hào Quang",
+            userType: 0,
+            linkString:
+              "https://storage.googleapis.com/hlsop-393ef.appspot.com/Kurumi.jpg?GoogleAccessId=firebase-adminsdk-5uq3u%40hlsop-393ef.iam.gserviceaccount.com&Expires=16446992400&Signature=URnlqluKjIKXmYPn2kkeuHnFSLGlOh8UVOMDzVLki8Jr5Vm7dEsCpik%2BaX%2Bcec7AGwqNyNMfowi7Udn8zu9sOVrRP8zwIkGMRTQ6pEfu9H9aeBJJeDj7qEkNsNoV%2BxHyWU7mACqD6eG0qIrtoknwOeEzuesJQSUyTpDls2VVtPeaBPD4Am7tj%2FCSBOUDKL3dC5HFKh%2F3fkzmYEGJOj7kE1CnBIfEXHElUfE03xAP682UzlEEp4SQGTRVWjHWnq5GmbImUHrKtUvVaSUcmm%2FJEfo542pk%2FYvs0HW1VxSvkS27F2xkgvuMFjN3DM8v%2BtEYlXhrObCf6G7N8aDiNipe0Q%3D%3D",
+          },
+          productCategory: {
+            productCategoryID: item.productCategoryID,
+            productCategoryName: item.productCategoryName,
+            linkString: item.linkStringCate,
+          },
+          productSKU: [],
         };
-      });
-
-      response.status(200).json(newSku);
-    } else if (attributes.length === 1) {
-      const queryProductSku =
-        "SELECT id AS productSKUID, price AS price, priceBefore AS priceBefore from ProductSku WHERE idProduct =  @idProduct AND idAttributeValue1 = @idAttributeValue1";
-      const resultProductSku = await database
-        .request()
-        .input("idProduct", idProduct)
-        .input("idAttributeValue1", atttributeValueID1)
-        .query(queryProductSku);
-
-      if (resultProductSku.recordset.length === 1) {
-        response.status(200).json(resultProductSku.recordset[0]);
-      } else {
-        response.status(200).json({
-          price: 0,
-          priceBefore: 0,
-          productSKUID: "",
+      }
+      const mediaExist = resultMap[productID].medias.some(
+        (media) => media.mediaID === mediaID
+      );
+      if (!mediaExist) {
+        resultMap[productID].medias.push({
+          mediaID: mediaID,
+          linkString: item.linkString,
+          title: item.title ? item.title : "",
+          description: item.description ? item.description : "",
         });
       }
-    } else {
-      const queryProductSku =
-        "SELECT id AS productSKUID, price AS price, priceBefore AS priceBefore from ProductSku WHERE idProduct = @idProduct AND idAttributeValue1 = @idAttributeValue1 AND idAttributeValue2 = @idAttributeValue2";
-      const resultProductSku = await database
-        .request()
-        .input("idProduct", idProduct)
-        .input("idAttributeValue1", atttributeValueID1)
-        .input("idAttributeValue2", atttributeValueID2)
-        .query(queryProductSku);
 
-      response.status(200).json(resultProductSku.recordset[0]);
-    }
+      // Kiểm tra xem productSKU có tồn tại trong productSKU hay không
+      const skuExist = resultMap[productID].productSKU.some(
+        (sku) => sku.productSKUID === productSKUID
+      );
+      if (!skuExist) {
+        resultMap[productID].productSKU.push({
+          productSKUID: productSKUID,
+          linkString: item.linkString,
+          price: item.price.toString(),
+          priceBefore: item.priceBefore.toString(),
+        });
+      }
+    });
+
+    const resultArray = Object.values(resultMap);
+    return resultArray[0];
+  } catch (error) {
+    throw error;
+  }
+}
+router.get("/get-detail", async (request, response) => {
+  try {
+    const idProduct = request.query.ProductID;
+    const result = await getProductDetail(idProduct);
+    response.status(200).json(result);
   } catch (error) {
     console.log(error);
     response.status(500).json({
@@ -562,327 +480,502 @@ router.get("/get-product-sku-detail", async (request, response) => {
     });
   }
 });
+
+// router.get("/get-product-sku-detail", async (request, response) => {
+//   try {
+//     const idProduct = request.body.productID;
+//     const attributes = request.body.attributes;
+
+//     var atttributeValueID1 = "";
+//     var atttributeValueID2 = "";
+//     const query = "SELECT type FROM ProductAttribute WHERE id = @id";
+//     for (var i = 0; i < attributes.length; i++) {
+//       var result = await database
+//         .request()
+//         .input("id", attributes[i].attributeID)
+//         .query(query);
+
+//       if (result.recordset[0].type === 1) {
+//         atttributeValueID1 = attributes[i].attributeValueID;
+//       } else {
+//         atttributeValueID2 = attributes[i].attributeValueID;
+//       }
+//     }
+//     if (attributes.length === 0) {
+//       var sku = await skus(idProduct);
+//       let newSku = sku.map((item) => {
+//         return {
+//           productSKUID: item.productSKUID,
+//           price: item.price,
+//           priceBefore: item.priceBefore,
+//         };
+//       });
+
+//       response.status(200).json(newSku);
+//     } else if (attributes.length === 1) {
+//       const queryProductSku =
+//         "SELECT id AS productSKUID, price AS price, priceBefore AS priceBefore from ProductSku WHERE idProduct =  @idProduct AND idAttributeValue1 = @idAttributeValue1";
+//       const resultProductSku = await database
+//         .request()
+//         .input("idProduct", idProduct)
+//         .input("idAttributeValue1", atttributeValueID1)
+//         .query(queryProductSku);
+
+//       if (resultProductSku.recordset.length === 1) {
+//         response.status(200).json(resultProductSku.recordset[0]);
+//       } else {
+//         response.status(200).json({
+//           price: 0,
+//           priceBefore: 0,
+//           productSKUID: "",
+//         });
+//       }
+//     } else {
+//       const queryProductSku =
+//         "SELECT id AS productSKUID, price AS price, priceBefore AS priceBefore from ProductSku WHERE idProduct = @idProduct AND idAttributeValue1 = @idAttributeValue1 AND idAttributeValue2 = @idAttributeValue2";
+//       const resultProductSku = await database
+//         .request()
+//         .input("idProduct", idProduct)
+//         .input("idAttributeValue1", atttributeValueID1)
+//         .input("idAttributeValue2", atttributeValueID2)
+//         .query(queryProductSku);
+
+//       response.status(200).json(resultProductSku.recordset[0]);
+//     }
+//   } catch (error) {
+//     console.log(error);
+//     response.status(500).json({
+//       error: "Internal Server Error",
+//     });
+//   }
+// });
+
+async function getListProduct(typeOfList, idCategory) {
+  try {
+    var queryProduct = "";
+    switch (typeOfList) {
+      case "best-seller":
+        queryProduct = `
+              SELECT
+              p.id AS productID,
+              p.name AS productName,
+              p.description AS productDescription,
+              p.slogan AS productSlogan,
+              p.notes AS productNotes,
+              p.madeIn AS productMadeIn,
+              ps.id AS productSKUID,
+              ps.price AS price,
+              ps.priceBefore AS priceBefore,
+              m.id AS mediaID,
+              m.linkString AS linkString,
+              m.title AS title,
+              m.description AS description
+              FROM Product as p
+              JOIN ProductSku as ps ON p.id = ps.idProduct
+              JOIN Media as m ON p.id = m.id_product
+              ORDER BY p.sellQuantity DESC
+            `;
+        break;
+      case "new":
+        queryProduct = `
+              SELECT
+              p.id AS productID,
+              p.name AS productName,
+              p.description AS productDescription,
+              p.slogan AS productSlogan,
+              p.notes AS productNotes,
+              p.madeIn AS productMadeIn,
+              ps.id AS productSKUID,
+              ps.price AS price,
+              ps.priceBefore AS priceBefore,
+              m.id AS mediaID,
+              m.linkString AS linkString,
+              m.title AS title,
+              m.description AS description
+              FROM Product as p
+              JOIN ProductSku as ps ON p.id = ps.idProduct
+              JOIN Media as m ON p.id = m.id_product
+              ORDER BY p.createdDate DESC
+            `;
+        break;
+      case "hot":
+        queryProduct = `
+              SELECT
+              p.id AS productID,
+              p.name AS productName,
+              p.description AS productDescription,
+              p.slogan AS productSlogan,
+              p.notes AS productNotes,
+              p.madeIn AS productMadeIn,
+              ps.id AS productSKUID,
+              ps.price AS price,
+              ps.priceBefore AS priceBefore,
+              m.id AS mediaID,
+              m.linkString AS linkString,
+              m.title AS title,
+              m.description AS description
+              FROM Product as p
+              JOIN ProductSku as ps ON p.id = ps.idProduct
+              JOIN Media as m ON p.id = m.id_product
+              ORDER BY p.sellQuantity, p.createdDate DESC
+            `;
+        break;
+      case "good-price-today":
+        queryProduct = `
+              SELECT
+              p.id AS productID,
+              p.name AS productName,
+              p.description AS productDescription,
+              p.slogan AS productSlogan,
+              p.notes AS productNotes,
+              p.madeIn AS productMadeIn,
+              ps.id AS productSKUID,
+              ps.price AS price,
+              ps.priceBefore AS priceBefore,
+              m.id AS mediaID,
+              m.linkString AS linkString,
+              m.title AS title,
+              m.description AS description
+              FROM Product as p
+              JOIN ProductSku as ps ON p.id = ps.idProduct
+              JOIN Media as m ON p.id = m.id_product
+              ORDER BY ps.price ASC
+            `;
+        break;
+      default:
+        break;
+    }
+    const result = await database.request().query(queryProduct);
+
+    const resultMap = {};
+    result.recordset.forEach((item) => {
+      const { productID, productSKUID, mediaID } = item;
+      if (!resultMap[productID]) {
+        resultMap[productID] = {
+          productID: productID,
+          productName: item.productName,
+          productDescription: item.productDescription,
+          productSlogan: item.productSlogan,
+          productNotes: item.productNotes,
+          productMadeIn: item.productMadeIn,
+          medias: [
+            {
+              mediaID: mediaID,
+              linkString: item.linkString,
+              title: item.title ? item.title : "",
+              description: item.description ? item.description : "",
+            },
+          ],
+          productSKU: [
+            {
+              productSKUID: productSKUID,
+              price: item.price,
+              priceBefore: item.priceBefore,
+            },
+          ],
+        };
+      }
+    });
+
+    const resultArray = Object.values(resultMap);
+    return resultArray;
+  } catch (error) {
+    throw error;
+  }
+}
 
 router.get("/get-list-best-seller", async (request, response) => {
   try {
-    var offset = request.query.offset;
-    var limit = request.query.limit;
+    var offset = parseInt(request.query.offset) || 0;
+    var limit = parseInt(request.query.limit) || 10;
+    var search = request.query.search ? request.query.search.toLowerCase() : "";
 
-    if (offset == null || offset < 1) {
-      offset = 1;
-    }
+    const resultArray = await getListProduct("best-seller");
 
-    if (limit == null) {
-      limit = 10;
-    }
-
-    offset = (offset - 1) * limit;
-    const queryProduct =
-      "SELECT * FROM (SELECT TOP 10 * FROM Product ORDER BY sellQuantity DESC) AS subproduct ORDER BY name OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY";
-    const resultProduct = await database
-      .request()
-      .input("offset", parseInt(offset))
-      .input("limit", parseInt(limit))
-      .query(queryProduct);
-
-    var products = [];
-
-    for (var i = 0; i < resultProduct.recordset.length; i++) {
-      var media = await getMediasByProductId(resultProduct.recordset[i].id);
-      var sku = await skus(resultProduct.recordset[i].id);
-      if (Array.isArray(sku)) {
-        var newSku = sku.map((item) => {
-          return {
-            productSKUID: item.productSKUID,
-            price: item.price,
-            priceBefore: item.priceBefore,
-          };
-        });
-      }
-
-      var product = {
-        productID: resultProduct.recordset[i].id,
-        productName: resultProduct.recordset[i].name,
-        productDescription: resultProduct.recordset[i].description,
-        medias: media,
-        productSKU: newSku,
-      };
-      products.push(product);
-    }
-
-    var responseData = {
-      result: products,
-      total: 10, // Set mặc định vì chưa biết total này là gì
-    };
-    // var key = request.route.path;
-    // set(key, responseData);
-
-    response.status(200).json(responseData);
-  } catch (error) {
-    console.log(error);
-    response.status(500).json({
-      error: "Internal Server Error",
+    const filteredResult = resultArray.filter((item) => {
+      const productNameMatch = item.productName
+        ? item.productName.toLowerCase().includes(search)
+        : false;
+      const productDescriptionMatch = item.productDescription
+        ? item.productDescription.toLowerCase().includes(search)
+        : false;
+      const productSloganMatch = item.productSlogan
+        ? item.productSlogan.toLowerCase().includes(search)
+        : false;
+      const productNotesMatch = item.productNotes
+        ? item.productNotes.toLowerCase().includes(search)
+        : false;
+      const productMadeInMatch = item.productMadeIn
+        ? item.productMadeIn.toLowerCase().includes(search)
+        : false;
+      return (
+        productNameMatch ||
+        productDescriptionMatch ||
+        productSloganMatch ||
+        productNotesMatch ||
+        productMadeInMatch
+      );
     });
+
+    // Phân trang
+    const paginatedResult = filteredResult.slice(offset, offset + limit);
+
+    response
+      .status(200)
+      .json({ result: paginatedResult, total: filteredResult.length });
+  } catch (error) {
+    console.error(error);
+    response.status(500).json({ errorCode: "Internal Server Error" });
   }
 });
 
 router.get("/get-list-new", async (request, response) => {
   try {
-    var offset = request.query.offset;
-    var limit = request.query.limit;
+    var offset = parseInt(request.query.offset) || 0;
+    var limit = parseInt(request.query.limit) || 10;
+    var search = request.query.search ? request.query.search.toLowerCase() : "";
 
-    if (offset == null || offset < 1) {
-      offset = 1;
-    }
+    const resultArray = await getListProduct("new");
 
-    if (limit == null) {
-      limit = 10;
-    }
-
-    offset = (offset - 1) * limit;
-
-    const queryProduct =
-      "SELECT * FROM (SELECT TOP 10 * FROM Product ORDER BY createdDate DESC) AS subproduct ORDER BY name OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY";
-    const resultProduct = await database
-      .request()
-      .input("offset", parseInt(offset))
-      .input("limit", parseInt(limit))
-      .query(queryProduct);
-    var products = [];
-
-    for (var i = 0; i < resultProduct.recordset.length; i++) {
-      var media = await getMediasByProductId(resultProduct.recordset[i].id);
-      var sku = await skus(resultProduct.recordset[i].id);
-      if (Array.isArray(sku)) {
-        var newSku = sku.map((item) => {
-          return {
-            productSKUID: item.productSKUID,
-            price: item.price,
-            priceBefore: item.priceBefore,
-          };
-        });
-      }
-
-      var product = {
-        productID: resultProduct.recordset[i].id,
-        productName: resultProduct.recordset[i].name,
-        productDescription: resultProduct.recordset[i].description,
-        medias: media,
-        productSKU: newSku,
-      };
-
-      products.push(product);
-    }
-
-    var responseData = {
-      result: products,
-      total: 10, // Set mặc định vì chưa biết total này là gì
-    };
-    // var key = request.route.path;
-    // set(key, responseData);
-    response.status(200).json(responseData);
-  } catch (error) {
-    console.log(error);
-    response.status(500).json({
-      error: "Internal Server Error",
+    const filteredResult = resultArray.filter((item) => {
+      const productNameMatch = item.productName
+        ? item.productName.toLowerCase().includes(search)
+        : false;
+      const productDescriptionMatch = item.productDescription
+        ? item.productDescription.toLowerCase().includes(search)
+        : false;
+      const productSloganMatch = item.productSlogan
+        ? item.productSlogan.toLowerCase().includes(search)
+        : false;
+      const productNotesMatch = item.productNotes
+        ? item.productNotes.toLowerCase().includes(search)
+        : false;
+      const productMadeInMatch = item.productMadeIn
+        ? item.productMadeIn.toLowerCase().includes(search)
+        : false;
+      return (
+        productNameMatch ||
+        productDescriptionMatch ||
+        productSloganMatch ||
+        productNotesMatch ||
+        productMadeInMatch
+      );
     });
+
+    // Phân trang
+    const paginatedResult = filteredResult.slice(offset, offset + limit);
+
+    response
+      .status(200)
+      .json({ result: paginatedResult, total: filteredResult.length });
+  } catch (error) {
+    console.error(error);
+    response.status(500).json({ errorCode: "Internal Server Error" });
   }
 });
 
 router.get("/get-list-hot", get, async (request, response) => {
   try {
-    var offset = request.query.offset;
-    var limit = request.query.limit;
+    var offset = parseInt(request.query.offset) || 0;
+    var limit = parseInt(request.query.limit) || 10;
+    var search = request.query.search ? request.query.search.toLowerCase() : "";
 
-    if (offset == null || offset < 1) {
-      offset = 1;
-    }
+    const resultArray = await getListProduct("hot");
 
-    if (limit == null) {
-      limit = 10;
-    }
-
-    offset = (offset - 1) * limit;
-
-    const queryProduct =
-      "SELECT * FROM (SELECT TOP 10 * FROM Product ORDER BY createdDate DESC) AS subproduct ORDER BY name OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY";
-    const resultProduct = await database
-      .request()
-      .input("offset", parseInt(offset))
-      .input("limit", parseInt(limit))
-      .query(queryProduct);
-    var products = [];
-
-    for (var i = 0; i < resultProduct.recordset.length; i++) {
-      var media = await getMediasByProductId(resultProduct.recordset[i].id);
-      var sku = await skus(resultProduct.recordset[i].id);
-      if (Array.isArray(sku)) {
-        var newSku = sku.map((item) => {
-          return {
-            productSKUID: item.productSKUID,
-            price: item.price,
-            priceBefore: item.priceBefore,
-          };
-        });
-      }
-
-      var product = {
-        productID: resultProduct.recordset[i].id,
-        productName: resultProduct.recordset[i].name,
-        productDescription: resultProduct.recordset[i].description,
-        medias: media,
-        productSKU: newSku,
-      };
-
-      products.push(product);
-    }
-
-    var responseData = {
-      result: products,
-      total: 10, // Set mặc định vì chưa biết total này là gì
-    };
-    // var key = request.route.path;
-    // set(key, responseData);
-    response.status(200).json(responseData);
-  } catch (error) {
-    console.log(error);
-    response.status(500).json({
-      error: "Internal Server Error",
+    const filteredResult = resultArray.filter((item) => {
+      const productNameMatch = item.productName
+        ? item.productName.toLowerCase().includes(search)
+        : false;
+      const productDescriptionMatch = item.productDescription
+        ? item.productDescription.toLowerCase().includes(search)
+        : false;
+      const productSloganMatch = item.productSlogan
+        ? item.productSlogan.toLowerCase().includes(search)
+        : false;
+      const productNotesMatch = item.productNotes
+        ? item.productNotes.toLowerCase().includes(search)
+        : false;
+      const productMadeInMatch = item.productMadeIn
+        ? item.productMadeIn.toLowerCase().includes(search)
+        : false;
+      return (
+        productNameMatch ||
+        productDescriptionMatch ||
+        productSloganMatch ||
+        productNotesMatch ||
+        productMadeInMatch
+      );
     });
+
+    // Phân trang
+    const paginatedResult = filteredResult.slice(offset, offset + limit);
+
+    response
+      .status(200)
+      .json({ result: paginatedResult, total: filteredResult.length });
+  } catch (error) {
+    console.error(error);
+    response.status(500).json({ errorCode: "Internal Server Error" });
   }
 });
 
 router.get("/get-list-good-price-today", get, async (request, response) => {
   try {
-    var offset = request.query.offset;
-    var limit = request.query.limit;
+    var offset = parseInt(request.query.offset) || 0;
+    var limit = parseInt(request.query.limit) || 10;
+    var search = request.query.search ? request.query.search.toLowerCase() : "";
 
-    if (offset == null || offset < 1) {
-      offset = 1;
-    }
+    const resultArray = await getListProduct("good-price-today");
 
-    if (limit == null) {
-      limit = 10;
-    }
-
-    offset = (offset - 1) * limit;
-
-    const queryProduct =
-      "SELECT * FROM (SELECT TOP 10 * FROM Product ORDER BY createdDate DESC) AS subproduct ORDER BY name OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY";
-    const resultProduct = await database
-      .request()
-      .input("offset", parseInt(offset))
-      .input("limit", parseInt(limit))
-      .query(queryProduct);
-    var products = [];
-
-    for (var i = 0; i < resultProduct.recordset.length; i++) {
-      var media = await getMediasByProductId(resultProduct.recordset[i].id);
-      var sku = await skus(resultProduct.recordset[i].id);
-      if (Array.isArray(sku)) {
-        var newSku = sku.map((item) => {
-          return {
-            productSKUID: item.productSKUID,
-            price: item.price,
-            priceBefore: item.priceBefore,
-          };
-        });
-      }
-
-      var product = {
-        productID: resultProduct.recordset[i].id,
-        productName: resultProduct.recordset[i].name,
-        productDescription: resultProduct.recordset[i].description,
-        medias: media,
-        productSKU: newSku,
-      };
-
-      products.push(product);
-    }
-
-    var responseData = {
-      result: products,
-      total: 10, // Set mặc định vì chưa biết total này là gì
-    };
-    // var key = request.route.path;
-    // set(key, responseData);
-    response.status(200).json(responseData);
-  } catch (error) {
-    console.log(error);
-    response.status(500).json({
-      error: "Internal Server Error",
+    const filteredResult = resultArray.filter((item) => {
+      const productNameMatch = item.productName
+        ? item.productName.toLowerCase().includes(search)
+        : false;
+      const productDescriptionMatch = item.productDescription
+        ? item.productDescription.toLowerCase().includes(search)
+        : false;
+      const productSloganMatch = item.productSlogan
+        ? item.productSlogan.toLowerCase().includes(search)
+        : false;
+      const productNotesMatch = item.productNotes
+        ? item.productNotes.toLowerCase().includes(search)
+        : false;
+      const productMadeInMatch = item.productMadeIn
+        ? item.productMadeIn.toLowerCase().includes(search)
+        : false;
+      return (
+        productNameMatch ||
+        productDescriptionMatch ||
+        productSloganMatch ||
+        productNotesMatch ||
+        productMadeInMatch
+      );
     });
+
+    // Phân trang
+    const paginatedResult = filteredResult.slice(offset, offset + limit);
+
+    response
+      .status(200)
+      .json({ result: paginatedResult, total: filteredResult.length });
+  } catch (error) {
+    console.error(error);
+    response.status(500).json({ errorCode: "Internal Server Error" });
   }
 });
 
+async function getListProductSameCategory(idProduct, idCategory) {
+  try {
+    const queryProduct = `
+      SELECT 
+      p.id AS productID,
+      p.name AS productName,
+      p.description AS productDescription,
+      p.slogan AS productSlogan,
+      p.notes AS productNotes,
+      p.madeIn AS productMadeIn,
+      ps.id AS productSKUID,
+      ps.price AS price,
+      ps.priceBefore AS priceBefore,
+      m.id AS mediaID,
+      m.linkString AS linkString,
+      m.title AS title,
+      m.description AS description
+      FROM Product as p
+      JOIN ProductSku as ps ON p.id = ps.idProduct
+      JOIN Media as m ON p.id = m.id_product
+      WHERE p.id_Category = @idCategory
+      ORDER BY p.sellQuantity DESC
+    `;
+
+    const result = await database
+      .request()
+      .input("idCategory", idCategory)
+      .query(queryProduct);
+
+    const resultMap = {};
+    result.recordset.forEach((item) => {
+      const { productID, productSKUID, mediaID } = item;
+      if (!resultMap[productID]) {
+        resultMap[productID] = {
+          productID: productID,
+          productName: item.productName,
+          productDescription: item.productDescription,
+          productSlogan: item.productSlogan,
+          productNotes: item.productNotes,
+          productMadeIn: item.productMadeIn,
+          medias: [
+            {
+              mediaID: mediaID,
+              linkString: item.linkString,
+              title: item.title ? item.title : "",
+              description: item.description ? item.description : "",
+            },
+          ],
+          productSKU: [
+            {
+              productSKUID: productSKUID,
+              price: item.price,
+              priceBefore: item.priceBefore,
+            },
+          ],
+        };
+      }
+    });
+
+    const resultArray = Object.values(resultMap);
+    return resultArray;
+  } catch (error) {
+    throw error;
+  }
+}
 router.get("/get-list-same-category", async (request, response) => {
   try {
-    var offset = request.query.offset;
-    var limit = request.query.limit;
     var productID = request.query.productID;
     var productCategoryID = request.query.productCategoryID;
+    var offset = parseInt(request.query.offset) || 0;
+    var limit = parseInt(request.query.limit) || 10;
+    var search = request.query.search ? request.query.search.toLowerCase() : "";
 
-    var offset = request.query.offset;
-    var limit = request.query.limit;
+    const resultArray = await getListProductSameCategory(
+      productID,
+      productCategoryID
+    );
 
-    if (offset == null || offset < 1) {
-      offset = 1;
-    }
-
-    if (limit == null) {
-      limit = 10;
-    }
-
-    offset = (offset - 1) * limit;
-
-    const queryProduct =
-      "SELECT * FROM Product WHERE id != @productID AND id_Category = @categoryID ORDER BY name OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY";
-    const resultProduct = await database
-      .request()
-      .input("offset", parseInt(offset))
-      .input("limit", parseInt(limit))
-      .input("productID", productID)
-      .input("categoryID", productCategoryID)
-      .query(queryProduct);
-    var products = [];
-
-    for (var i = 0; i < resultProduct.recordset.length; i++) {
-      var media = await getMediasByProductId(resultProduct.recordset[i].id);
-      var sku = await skus(resultProduct.recordset[i].id);
-      if (Array.isArray(sku)) {
-        var newSku = sku.map((item) => {
-          return {
-            productSKUID: item.productSKUID,
-            price: item.price,
-            priceBefore: item.priceBefore,
-          };
-        });
-      }
-
-      var product = {
-        productID: resultProduct.recordset[i].id,
-        productName: resultProduct.recordset[i].name,
-        productDescription: resultProduct.recordset[i].description,
-        medias: media,
-        productSKU: newSku,
-      };
-
-      products.push(product);
-    }
-
-    var responseData = {
-      result: products,
-      total: 10, // Set mặc định vì chưa biết total này là gì
-    };
-    // var key = request.route.path;
-    // set(key, responseData);
-
-    response.status(200).json(responseData);
-  } catch (error) {
-    console.log(error);
-    response.status(500).json({
-      error: "Internal Server Error",
+    const filteredResult = resultArray.filter((item) => {
+      const productNameMatch = item.productName
+        ? item.productName.toLowerCase().includes(search)
+        : false;
+      const productDescriptionMatch = item.productDescription
+        ? item.productDescription.toLowerCase().includes(search)
+        : false;
+      const productSloganMatch = item.productSlogan
+        ? item.productSlogan.toLowerCase().includes(search)
+        : false;
+      const productNotesMatch = item.productNotes
+        ? item.productNotes.toLowerCase().includes(search)
+        : false;
+      const productMadeInMatch = item.productMadeIn
+        ? item.productMadeIn.toLowerCase().includes(search)
+        : false;
+      return (
+        productNameMatch ||
+        productDescriptionMatch ||
+        productSloganMatch ||
+        productNotesMatch ||
+        productMadeInMatch
+      );
     });
+
+    // Phân trang
+    const paginatedResult = filteredResult.slice(offset, offset + limit);
+
+    response
+      .status(200)
+      .json({ result: paginatedResult, total: filteredResult.length });
+  } catch (error) {
+    console.error(error);
+    response.status(500).json({ errorCode: "Internal Server Error" });
   }
 });
 
@@ -966,98 +1059,38 @@ router.get("/get-product-sku-by-product-id", async (request, response) => {
     });
   }
 });
-
+// {
+//     "productID": "FAC6D365-1FF7-4ABA-9292-4509261EE1DB",
+//     "productSKU": [
+//         {
+//             "productSKUID": "DC074F4D-7D0D-4E40-BFA7-1E6818A9EF54",
+//             "linkString": "https://storage.googleapis.com/hlsop-393ef.appspot.com/nho.jpg?GoogleAccessId=firebase-adminsdk-5uq3u%40hlsop-393ef.iam.gserviceaccount.com&Expires=16730298000&Signature=R7zVhvOmVf6TNro7rYVpM3XZIZfSGuN4yMfdV46a1GsUEEkQV0MsYfc8IQ89C3ySCq9RfiHH4lDBJU0YT9TPS1JAr4aHI%2BWY1h6oas6xW%2FDvAuaLTxXDbgc4mcQVn5G8qmxsLe8SsKvld7C2AYuqQrF%2FLYxFNhVmPBQYQgPwmf9A4ob8V42RRKYYRuXdaiFyHFxzK%2BSuk4uaLh71gRdxpJ7xbOJJHHs0gdnLGc0iuvnPt%2BO6f8kh4FpiSV7gX9m37LhfllNX60Oe6YOkhVHzsgogTrGWppikgBXxoNLx6U2Ow7tO6h3y2S07SyXO2vzlYScLGU%2Fqc%2BptR2Kiqshf4A%3D%3D",
+//             "price": 9300,
+//             "priceBefore": 0,
+//             "attribute": [
+//                 {
+//                     "productSKUConditionID": "DC074F4D-7D0D-4E40-BFA7-1E6818A9EF54",
+//                     "productSKUID": "DC074F4D-7D0D-4E40-BFA7-1E6818A9EF54",
+//                     "attributeID": "996C0DF1-F348-40BF-AB43-DAA5E71C6CD7",
+//                     "locAttributeName": "Màu sắc",
+//                     "locAttributeDescription": "Màu sắc",
+//                     "attributeValueID": "404A4E43-A4DD-43CB-BD1F-7CC8BD7874D7",
+//                     "locAttributeValueName": "Nho",
+//                     "locAttributeValueDescription": "Nho"
+//                 }
+//             ]
+//         }
+//     ]
+// }
 async function processSkus(productID) {
-  const skuss = [];
-  const sku = await skus(productID);
-
-  for (const s of sku) {
-    const image = await getLinkStringBySku(productID, s);
-    const attributes = await getAttributes(productID, s);
-
-    const newSku = {
-      productSKUID: s.productSKUID,
-      linkString: image,
-      price: s.price,
-      priceBefore: s.priceBefore,
-      attribute: attributes,
-    };
-
-    skuss.push(newSku);
+  try {
+    const query = `
+    S
+    `;
+  } catch (error) {
+    console.log(error);
+    throw "Error in processSkus";
   }
-
-  return skuss;
-}
-
-async function getLinkStringBySku(productID, sku) {
-  if (sku.idAttributeValue1 === null) {
-    const queryImage =
-      "SELECT linkString FROM Media WHERE id_product = @idProduct AND isDefault = 1";
-    const imageResult = await database
-      .request()
-      .input("idProduct", productID)
-      .query(queryImage);
-    return imageResult.recordset[0].linkString;
-  } else {
-    const queryImage =
-      "SELECT linkString FROM Media WHERE productAttributeValueID = @productAttributeValueID";
-    const imageResult = await database
-      .request()
-      .input("productAttributeValueID", sku.idAttributeValue1)
-      .query(queryImage);
-    return imageResult.recordset[0].linkString;
-  }
-}
-
-async function getAttributes(productID, sku) {
-  const attributes = [];
-
-  if (sku.idAttributeValue1 !== null) {
-    const attribute1 = await processAttribute(
-      productID,
-      sku.idAttributeValue1,
-      sku
-    );
-    attributes.push(attribute1);
-
-    if (sku.idAttributeValue2 !== null) {
-      const attribute2 = await processAttribute(
-        productID,
-        sku.idAttributeValue2,
-        sku
-      );
-      attributes.push(attribute2);
-    }
-  }
-
-  return attributes;
-}
-
-async function processAttribute(productID, attributeValueID, sku) {
-  const queryAttributeValue =
-    "SELECT * FROM ProductAttributeValue WHERE id = @id";
-  const resultAttributeValue = await database
-    .request()
-    .input("id", attributeValueID)
-    .query(queryAttributeValue);
-
-  const queryattributes = "SELECT * FROM ProductAttribute WHERE id = @id ";
-  const attributesResult = await database
-    .request()
-    .input("id", resultAttributeValue.recordset[0].productAttributeID)
-    .query(queryattributes);
-
-  var attribute = {
-    productSKUConditionID: sku.productSKUID,
-    productSKUID: sku.productSKUID,
-    attributeID: attributesResult.recordset[0].id,
-    locAttributeName: attributesResult.recordset[0].name,
-    locAttributeDescription: attributesResult.recordset[0].description,
-    attributeValueID: resultAttributeValue.recordset[0].id,
-    locAttributeValueName: resultAttributeValue.recordset[0].valueName,
-    locAttributeValueDescription: resultAttributeValue.recordset[0].valueName,
-  };
-  return attribute;
 }
 
 module.exports = router;

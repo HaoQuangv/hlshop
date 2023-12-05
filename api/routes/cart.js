@@ -160,16 +160,43 @@ router.get(
     }
   }
 );
-
 async function getCartList(idAccount) {
   const query = `
-    SELECT Cart.*, ProductSku.id AS productSKUID, ProductSku.price AS price, ProductSku.idAttributeValue1 AS idAttributeValue1, ProductSku.idAttributeValue2 AS idAttributeValue2, Product.id AS productID, Product.name AS productName, Product.description AS productDescription
+    SELECT
+      c.id AS cartID,
+      c.quantity AS quantity,
+      Product.id AS productID,
+      Product.name AS productName,
+      Product.description AS productDescription,
+      ProductSku.id AS productSKUID,
+      ProductSku.price AS price,
+      ProductSku.priceBefore AS priceBefore,
+      pav.id AS idAttributeValue1,
+      pav.valueName AS locAttributeValueName1,
+      pav.valueName AS locAttributeValueDescription1,
+      pav2.id AS idAttributeValue2,
+      pav2.valueName AS locAttributeValueName2,
+      pav2.valueName AS locAttributeValueDescription2,
+      pa.name AS locAttributeName,
+      pa.id AS attributeID,
+      pa2.name AS locAttributeName2,
+      pa2.id AS attributeID2,
+      Media.id AS mediaID,
+      Media.linkString AS linkString,
+      Media.title AS title,
+      Media.description AS description,
+      Media.productAttributeValueID
     FROM [User]
-    JOIN Cart ON [User].id = Cart.id_user
-    JOIN ProductSku ON Cart.idProductSku = ProductSku.id
+    JOIN Cart AS c ON [User].id = c.id_user
+    JOIN ProductSku ON c.idProductSku = ProductSku.id
+    LEFT JOIN ProductAttributeValue AS pav ON ProductSku.idAttributeValue1 = pav.id
+    LEFT JOIN ProductAttributeValue AS pav2 ON ProductSku.idAttributeValue2 = pav2.id
+    LEFT JOIN ProductAttribute AS pa ON pav.productAttributeID = pa.id
+    LEFT JOIN ProductAttribute AS pa2 ON pav2.productAttributeID = pa2.id
     JOIN Product ON ProductSku.idProduct = Product.id
+    LEFT JOIN Media ON Product.id = Media.id_product
     WHERE [User].id_account = @idAccount
-    ORDER BY Cart.createdDate DESC;
+    ORDER BY c.createdDate DESC;
   `;
 
   const result = await database
@@ -177,105 +204,86 @@ async function getCartList(idAccount) {
     .input("idAccount", idAccount)
     .query(query);
 
-  const carts = [];
-  for (const cart of result.recordset) {
-    const productID = cart.productID;
-    const productSKUID = cart.productSKUID;
-    const medias = await getMedias(productID, cart.idAttributeValue1);
-    const attributes = await getAttributes(
+  const resultMap = {};
+  result.recordset.forEach((item) => {
+    const {
+      cartID,
+      productID,
       productSKUID,
-      cart.idAttributeValue1,
-      cart.idAttributeValue2
+      mediaID,
+      idAttributeValue1,
+      idAttributeValue2,
+      ...rest
+    } = item;
+    if (!resultMap[cartID]) {
+      resultMap[cartID] = {
+        cartID: cartID,
+        productID: productID,
+        productName: item.productName,
+        productDescription: item.productDescription,
+        productSKUID: productSKUID,
+        medias: [],
+        quantity: item.quantity,
+        price: item.price,
+        priceBefore: item.priceBefore,
+        attribute: [],
+      };
+    }
+    // xu ly anh
+    if (idAttributeValue1 === item.productAttributeValueID) {
+      resultMap[cartID].medias.unshift({
+        mediaID: mediaID,
+        linkString: item.linkString,
+        title: item.title ? item.title : "",
+        description: item.description ? item.description : "",
+      });
+    } else if (resultMap[cartID].medias.length === 0) {
+      resultMap[cartID].medias.push({
+        mediaID: mediaID,
+        linkString: item.linkString,
+        title: item.title ? item.title : "",
+        description: item.description ? item.description : "",
+      });
+    }
+    if (resultMap[cartID].medias.length > 1) {
+      resultMap[cartID].medias.pop();
+    }
+    const attribute1Exit = resultMap[cartID].attribute.some(
+      (attribute) => attribute.attributeValueID === idAttributeValue1
     );
 
-    const cartData = {
-      cartID: cart.id,
-      productID: productID,
-      productName: cart.productName,
-      productDescription: cart.productDescription,
-      productSKUID: productSKUID,
-      medias: medias,
-      quantity: cart.quantity,
-      price: cart.price.toString(),
-      priceBefore: 0,
-      attribute: attributes,
-    };
+    if (!attribute1Exit) {
+      if (idAttributeValue1) {
+        resultMap[cartID].attribute.push({
+          localizedAttributeValueID: idAttributeValue1,
+          locAttributeValueName: item.locAttributeValueName1,
+          locAttributeValueDescription: item.locAttributeValueDescription1,
+          attributeValueID: idAttributeValue1,
+          locAttributeName: item.locAttributeName,
+          attributeID: item.attributeID,
+        });
+      }
+    }
+    const attribute2Exit = resultMap[cartID].attribute.some(
+      (attribute) =>
+        attribute.attributeValueID === idAttributeValue2 &&
+        attribute.attributeID === item.attributeID2
+    );
+    if (!attribute2Exit) {
+      if (idAttributeValue2) {
+        resultMap[cartID].attribute.push({
+          localizedAttributeValueID: idAttributeValue2,
+          locAttributeValueName: item.locAttributeValueName2,
+          locAttributeValueDescription: item.locAttributeValueDescription2,
+          attributeValueID: idAttributeValue2,
+          locAttributeName: item.locAttributeName2,
+          attributeID: item.attributeID2,
+        });
+      }
+    }
+  });
 
-    carts.push(cartData);
-  }
-
-  return carts;
-}
-
-async function getMedias(productID, idAttributeValue1) {
-  if (idAttributeValue1 !== null) {
-    const queryMedia =
-      "SELECT * FROM Media WHERE productAttributeValueID = @id";
-    var mediaResult = await database
-      .request()
-      .input("id", idAttributeValue1)
-      .query(queryMedia);
-    const images = [];
-    images.push({
-      mediaID: mediaResult.recordset[0].id,
-      linkString: mediaResult.recordset[0].linkString,
-      title: mediaResult.recordset[0].title,
-      description: mediaResult.recordset[0].description,
-      objectRefType: 0,
-      mediaType: 0,
-      objectRefID: "1",
-    });
-    return images;
-  } else {
-    const queryMedia = "SELECT * FROM Media WHERE id_product = @productID";
-    const mediaResult = await database
-      .request()
-      .input("productID", productID)
-      .query(queryMedia);
-    const images = [];
-    images.push({
-      mediaID: mediaResult.recordset[0].id,
-      linkString: mediaResult.recordset[0].linkString,
-      title: mediaResult.recordset[0].title,
-      description: mediaResult.recordset[0].description,
-      objectRefType: 0,
-      mediaType: 0,
-      objectRefID: "1",
-    });
-    return images;
-  }
-}
-
-async function getAttributes(
-  productSKUID,
-  idAttributeValue1,
-  idAttributeValue2
-) {
-  const attributes = [];
-  const attributeValueFields = [idAttributeValue1, idAttributeValue2].filter(
-    (field) => field !== null
-  );
-  for (const field of attributeValueFields) {
-    const queryAttributes = `
-      SELECT
-        pav.id AS localizedAttributeValueID,
-        pav.valueName AS locAttributeValueName,
-        pav.valueName AS locAttributeValueDescription,
-        pav.id AS attributeValueID,
-        pa.name AS locAttributeName,
-        pa.id AS attributeID
-      FROM ProductAttributeValue pav
-      JOIN ProductAttribute pa ON pav.productAttributeID = pa.id
-      WHERE pav.id = @idpav
-    `;
-
-    const attributeResult = await database
-      .request()
-      .input("idpav", field)
-      .query(queryAttributes);
-    attributes.push(attributeResult.recordset[0]);
-  }
-  return attributes;
+  return Object.values(resultMap);
 }
 
 function handleErrorResponse(error, response) {
