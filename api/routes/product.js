@@ -1059,34 +1059,124 @@ router.get("/get-product-sku-by-product-id", async (request, response) => {
     });
   }
 });
-// {
-//     "productID": "FAC6D365-1FF7-4ABA-9292-4509261EE1DB",
-//     "productSKU": [
-//         {
-//             "productSKUID": "DC074F4D-7D0D-4E40-BFA7-1E6818A9EF54",
-//             "linkString": "https://storage.googleapis.com/hlsop-393ef.appspot.com/nho.jpg?GoogleAccessId=firebase-adminsdk-5uq3u%40hlsop-393ef.iam.gserviceaccount.com&Expires=16730298000&Signature=R7zVhvOmVf6TNro7rYVpM3XZIZfSGuN4yMfdV46a1GsUEEkQV0MsYfc8IQ89C3ySCq9RfiHH4lDBJU0YT9TPS1JAr4aHI%2BWY1h6oas6xW%2FDvAuaLTxXDbgc4mcQVn5G8qmxsLe8SsKvld7C2AYuqQrF%2FLYxFNhVmPBQYQgPwmf9A4ob8V42RRKYYRuXdaiFyHFxzK%2BSuk4uaLh71gRdxpJ7xbOJJHHs0gdnLGc0iuvnPt%2BO6f8kh4FpiSV7gX9m37LhfllNX60Oe6YOkhVHzsgogTrGWppikgBXxoNLx6U2Ow7tO6h3y2S07SyXO2vzlYScLGU%2Fqc%2BptR2Kiqshf4A%3D%3D",
-//             "price": 9300,
-//             "priceBefore": 0,
-//             "attribute": [
-//                 {
-//                     "productSKUConditionID": "DC074F4D-7D0D-4E40-BFA7-1E6818A9EF54",
-//                     "productSKUID": "DC074F4D-7D0D-4E40-BFA7-1E6818A9EF54",
-//                     "attributeID": "996C0DF1-F348-40BF-AB43-DAA5E71C6CD7",
-//                     "locAttributeName": "Màu sắc",
-//                     "locAttributeDescription": "Màu sắc",
-//                     "attributeValueID": "404A4E43-A4DD-43CB-BD1F-7CC8BD7874D7",
-//                     "locAttributeValueName": "Nho",
-//                     "locAttributeValueDescription": "Nho"
-//                 }
-//             ]
-//         }
-//     ]
-// }
+
 async function processSkus(productID) {
   try {
     const query = `
-    S
-    `;
+      SELECT 
+      ps.id AS productSKUID,
+      ps.quantity AS quantity,
+      ps.price AS price,
+      ps.priceBefore AS priceBefore,
+      pav.id AS idAttributeValue1,
+      pav.valueName AS locAttributeValueName1,
+      pav2.id AS idAttributeValue2,
+      pav2.valueName AS locAttributeValueName2,
+      pa.name AS locAttributeName,
+      pa.id AS attributeID,
+      pa2.name AS locAttributeName2,
+      pa2.id AS attributeID2,
+      Media.id AS mediaID,
+      Media.linkString AS linkString,
+      Media.productAttributeValueID
+      FROM ProductSku AS ps
+      LEFT JOIN ProductAttributeValue AS pav ON ps.idAttributeValue1 = pav.id
+      LEFT JOIN ProductAttributeValue AS pav2 ON ps.idAttributeValue2 = pav2.id
+      LEFT JOIN ProductAttribute AS pa ON pav.productAttributeID = pa.id
+      LEFT JOIN ProductAttribute AS pa2 ON pav2.productAttributeID = pa2.id
+      JOIN Product ON ps.idProduct = Product.id
+      LEFT JOIN Media ON Product.id = Media.id_product
+      WHERE idProduct = @productID;
+      `;
+    const result = await database
+      .request()
+      .input("productID", productID)
+      .query(query);
+    const resultMap = {};
+    const linkStringMap = {};
+    result.recordset.forEach((item) => {
+      const {
+        productSKUID,
+        mediaID,
+        idAttributeValue1,
+        idAttributeValue2,
+        attributeID,
+        attributeID2,
+        ...rest
+      } = item;
+      if (!resultMap[productSKUID]) {
+        resultMap[productSKUID] = {
+          productSKUID: productSKUID,
+          linkString: "",
+          price: item.price,
+          priceBefore: item.priceBefore,
+          attribute: [],
+        };
+      }
+      const linkStringExist =
+        linkStringMap[mediaID] &&
+        linkStringMap[mediaID].linkString === item.linkString;
+      if (!linkStringExist) {
+        if (mediaID) {
+          linkStringMap[item.productAttributeValueID] = {
+            mediaID: mediaID,
+            linkString: item.linkString,
+            productAttributeValueID: item.productAttributeValueID,
+          };
+        }
+      }
+
+      const attribute1Exit = resultMap[productSKUID].attribute.some(
+        (attribute) => attribute.attributeValueID === idAttributeValue1
+      );
+
+      if (!attribute1Exit) {
+        if (idAttributeValue1) {
+          resultMap[productSKUID].attribute.push({
+            localizedAttributeValueID: idAttributeValue1,
+            locAttributeValueName: item.locAttributeValueName1,
+            locAttributeValueDescription: item.locAttributeValueDescription1,
+            attributeValueID: idAttributeValue1,
+            locAttributeName: item.locAttributeName,
+            attributeID: item.attributeID,
+          });
+        }
+      }
+      const attribute2Exit = resultMap[productSKUID].attribute.some(
+        (attribute) =>
+          attribute.attributeValueID === idAttributeValue2 &&
+          attribute.attributeID === item.attributeID2
+      );
+      if (!attribute2Exit) {
+        if (idAttributeValue2) {
+          resultMap[productSKUID].attribute.push({
+            localizedAttributeValueID: idAttributeValue2,
+            locAttributeValueName: item.locAttributeValueName2,
+            locAttributeValueDescription: item.locAttributeValueDescription2,
+            attributeValueID: idAttributeValue2,
+            locAttributeName: item.locAttributeName2,
+            attributeID: item.attributeID2,
+          });
+        }
+      }
+    });
+    for (const productSKUID in resultMap) {
+      const attributes = resultMap[productSKUID].attribute;
+      for (const attribute of attributes) {
+        const { localizedAttributeValueID } = attribute; // Thêm dòng này để đảm bảo localizedAttributeValueID được định nghĩa.
+        const linkStringMapItem = linkStringMap[localizedAttributeValueID];
+        if (
+          linkStringMapItem &&
+          localizedAttributeValueID == linkStringMapItem.productAttributeValueID
+        ) {
+          resultMap[productSKUID].linkString = linkStringMapItem.linkString;
+          break;
+        }
+      }
+    }
+
+    const resultArray = Object.values(resultMap);
+    return resultArray;
   } catch (error) {
     console.log(error);
     throw "Error in processSkus";
