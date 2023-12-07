@@ -239,6 +239,8 @@ async function getListProductByCategory(idCategory) {
       p.slogan AS productSlogan,
       p.notes AS productNotes,
       p.madeIn AS productMadeIn,
+      p.sellQuantity AS sellQuantity,
+      p.createdDate AS createdDate,
       ps.id AS productSKUID,
       ps.price AS price,
       ps.priceBefore AS priceBefore,
@@ -269,6 +271,8 @@ async function getListProductByCategory(idCategory) {
           productSlogan: item.productSlogan,
           productNotes: item.productNotes,
           productMadeIn: item.productMadeIn,
+          sellQuantity: item.sellQuantity,
+          createdDate: item.createdDate,
           medias: [
             {
               mediaID: mediaID,
@@ -302,6 +306,7 @@ router.get("/detail", async (request, response) => {
     var offset = parseInt(request.query.offset) || 0;
     var limit = parseInt(request.query.limit) || 10;
     var search = request.query.search ? request.query.search.toLowerCase() : "";
+    var sortBy = parseInt(request.query.sortBy);
 
     const resultArray = await getListProductByCategory(idCategory);
 
@@ -329,7 +334,45 @@ router.get("/detail", async (request, response) => {
         productMadeInMatch
       );
     });
+    //sortBy: 0: Giá tăng dần, 1: Giá giảm dần, 2: mới nhất, 3: cũ nhất, 4: phổ biến nhất, 5: bán chạy nhất
+    switch (sortBy) {
+      case 0:
+        filteredResult.sort((a, b) => {
+          return a.productSKU[0].price - b.productSKU[0].price;
+        });
+        break;
+      case 1:
+        filteredResult.sort((a, b) => {
+          return b.productSKU[0].price - a.productSKU[0].price;
+        });
+        break;
+      case 2:
+        filteredResult.sort((a, b) => {
+          return new Date(b.createdDate) - new Date(a.createdDate);
+        });
+        break;
+      case 3:
+        filteredResult.sort((a, b) => {
+          return new Date(a.createdDate) - new Date(b.createdDate);
+        });
+        break;
 
+      case 4:
+        filteredResult.sort((a, b) => {
+          return (
+            b.sellQuantity / b.productSKU[0].price -
+            a.sellQuantity / a.productSKU[0].price
+          );
+        });
+        break;
+      case 5:
+        filteredResult.sort((a, b) => {
+          return b.sellQuantity - a.sellQuantity;
+        });
+        break;
+      default:
+        break;
+    }
     // Phân trang
     const paginatedResult = filteredResult.slice(offset, offset + limit);
 

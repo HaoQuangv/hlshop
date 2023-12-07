@@ -481,75 +481,6 @@ router.get("/get-detail", async (request, response) => {
   }
 });
 
-// router.get("/get-product-sku-detail", async (request, response) => {
-//   try {
-//     const idProduct = request.body.productID;
-//     const attributes = request.body.attributes;
-
-//     var atttributeValueID1 = "";
-//     var atttributeValueID2 = "";
-//     const query = "SELECT type FROM ProductAttribute WHERE id = @id";
-//     for (var i = 0; i < attributes.length; i++) {
-//       var result = await database
-//         .request()
-//         .input("id", attributes[i].attributeID)
-//         .query(query);
-
-//       if (result.recordset[0].type === 1) {
-//         atttributeValueID1 = attributes[i].attributeValueID;
-//       } else {
-//         atttributeValueID2 = attributes[i].attributeValueID;
-//       }
-//     }
-//     if (attributes.length === 0) {
-//       var sku = await skus(idProduct);
-//       let newSku = sku.map((item) => {
-//         return {
-//           productSKUID: item.productSKUID,
-//           price: item.price,
-//           priceBefore: item.priceBefore,
-//         };
-//       });
-
-//       response.status(200).json(newSku);
-//     } else if (attributes.length === 1) {
-//       const queryProductSku =
-//         "SELECT id AS productSKUID, price AS price, priceBefore AS priceBefore from ProductSku WHERE idProduct =  @idProduct AND idAttributeValue1 = @idAttributeValue1";
-//       const resultProductSku = await database
-//         .request()
-//         .input("idProduct", idProduct)
-//         .input("idAttributeValue1", atttributeValueID1)
-//         .query(queryProductSku);
-
-//       if (resultProductSku.recordset.length === 1) {
-//         response.status(200).json(resultProductSku.recordset[0]);
-//       } else {
-//         response.status(200).json({
-//           price: 0,
-//           priceBefore: 0,
-//           productSKUID: "",
-//         });
-//       }
-//     } else {
-//       const queryProductSku =
-//         "SELECT id AS productSKUID, price AS price, priceBefore AS priceBefore from ProductSku WHERE idProduct = @idProduct AND idAttributeValue1 = @idAttributeValue1 AND idAttributeValue2 = @idAttributeValue2";
-//       const resultProductSku = await database
-//         .request()
-//         .input("idProduct", idProduct)
-//         .input("idAttributeValue1", atttributeValueID1)
-//         .input("idAttributeValue2", atttributeValueID2)
-//         .query(queryProductSku);
-
-//       response.status(200).json(resultProductSku.recordset[0]);
-//     }
-//   } catch (error) {
-//     console.log(error);
-//     response.status(500).json({
-//       error: "Internal Server Error",
-//     });
-//   }
-// });
-
 async function getListProduct(typeOfList, idCategory) {
   try {
     var queryProduct = "";
@@ -563,6 +494,8 @@ async function getListProduct(typeOfList, idCategory) {
               p.slogan AS productSlogan,
               p.notes AS productNotes,
               p.madeIn AS productMadeIn,
+              p.sellQuantity AS sellQuantity,
+              p.createdDate AS createdDate,
               ps.id AS productSKUID,
               ps.price AS price,
               ps.priceBefore AS priceBefore,
@@ -585,6 +518,8 @@ async function getListProduct(typeOfList, idCategory) {
               p.slogan AS productSlogan,
               p.notes AS productNotes,
               p.madeIn AS productMadeIn,
+              p.sellQuantity AS sellQuantity,
+              p.createdDate AS createdDate,
               ps.id AS productSKUID,
               ps.price AS price,
               ps.priceBefore AS priceBefore,
@@ -607,6 +542,8 @@ async function getListProduct(typeOfList, idCategory) {
               p.slogan AS productSlogan,
               p.notes AS productNotes,
               p.madeIn AS productMadeIn,
+              p.sellQuantity AS sellQuantity,
+              p.createdDate AS createdDate,
               ps.id AS productSKUID,
               ps.price AS price,
               ps.priceBefore AS priceBefore,
@@ -629,6 +566,8 @@ async function getListProduct(typeOfList, idCategory) {
               p.slogan AS productSlogan,
               p.notes AS productNotes,
               p.madeIn AS productMadeIn,
+              p.sellQuantity AS sellQuantity,
+              p.createdDate AS createdDate,
               ps.id AS productSKUID,
               ps.price AS price,
               ps.priceBefore AS priceBefore,
@@ -658,6 +597,8 @@ async function getListProduct(typeOfList, idCategory) {
           productSlogan: item.productSlogan,
           productNotes: item.productNotes,
           productMadeIn: item.productMadeIn,
+          sellQuantity: item.sellQuantity,
+          createdDate: item.createdDate,
           medias: [
             {
               mediaID: mediaID,
@@ -689,6 +630,7 @@ router.get("/get-list-best-seller", async (request, response) => {
     var offset = parseInt(request.query.offset) || 0;
     var limit = parseInt(request.query.limit) || 10;
     var search = request.query.search ? request.query.search.toLowerCase() : "";
+    var sortBy = parseInt(request.query.sortBy);
 
     const resultArray = await getListProduct("best-seller");
 
@@ -716,7 +658,45 @@ router.get("/get-list-best-seller", async (request, response) => {
         productMadeInMatch
       );
     });
+    //sortBy: 0: Giá tăng dần, 1: Giá giảm dần, 2: mới nhất, 3: cũ nhất, 4: phổ biến nhất, 5: bán chạy nhất
+    switch (sortBy) {
+      case 0:
+        filteredResult.sort((a, b) => {
+          return a.productSKU[0].price - b.productSKU[0].price;
+        });
+        break;
+      case 1:
+        filteredResult.sort((a, b) => {
+          return b.productSKU[0].price - a.productSKU[0].price;
+        });
+        break;
+      case 2:
+        filteredResult.sort((a, b) => {
+          return new Date(b.createdDate) - new Date(a.createdDate);
+        });
+        break;
+      case 3:
+        filteredResult.sort((a, b) => {
+          return new Date(a.createdDate) - new Date(b.createdDate);
+        });
+        break;
 
+      case 4:
+        filteredResult.sort((a, b) => {
+          return (
+            b.sellQuantity / b.productSKU[0].price -
+            a.sellQuantity / a.productSKU[0].price
+          );
+        });
+        break;
+      case 5:
+        filteredResult.sort((a, b) => {
+          return b.sellQuantity - a.sellQuantity;
+        });
+        break;
+      default:
+        break;
+    }
     // Phân trang
     const paginatedResult = filteredResult.slice(offset, offset + limit);
 
@@ -734,6 +714,7 @@ router.get("/get-list-new", async (request, response) => {
     var offset = parseInt(request.query.offset) || 0;
     var limit = parseInt(request.query.limit) || 10;
     var search = request.query.search ? request.query.search.toLowerCase() : "";
+    var sortBy = parseInt(request.query.sortBy);
 
     const resultArray = await getListProduct("new");
 
@@ -761,7 +742,45 @@ router.get("/get-list-new", async (request, response) => {
         productMadeInMatch
       );
     });
+    //sortBy: 0: Giá tăng dần, 1: Giá giảm dần, 2: mới nhất, 3: cũ nhất, 4: phổ biến nhất, 5: bán chạy nhất
+    switch (sortBy) {
+      case 0:
+        filteredResult.sort((a, b) => {
+          return a.productSKU[0].price - b.productSKU[0].price;
+        });
+        break;
+      case 1:
+        filteredResult.sort((a, b) => {
+          return b.productSKU[0].price - a.productSKU[0].price;
+        });
+        break;
+      case 2:
+        filteredResult.sort((a, b) => {
+          return new Date(b.createdDate) - new Date(a.createdDate);
+        });
+        break;
+      case 3:
+        filteredResult.sort((a, b) => {
+          return new Date(a.createdDate) - new Date(b.createdDate);
+        });
+        break;
 
+      case 4:
+        filteredResult.sort((a, b) => {
+          return (
+            b.sellQuantity / b.productSKU[0].price -
+            a.sellQuantity / a.productSKU[0].price
+          );
+        });
+        break;
+      case 5:
+        filteredResult.sort((a, b) => {
+          return b.sellQuantity - a.sellQuantity;
+        });
+        break;
+      default:
+        break;
+    }
     // Phân trang
     const paginatedResult = filteredResult.slice(offset, offset + limit);
 
@@ -779,7 +798,7 @@ router.get("/get-list-hot", get, async (request, response) => {
     var offset = parseInt(request.query.offset) || 0;
     var limit = parseInt(request.query.limit) || 10;
     var search = request.query.search ? request.query.search.toLowerCase() : "";
-
+    var sortBy = parseInt(request.query.sortBy);
     const resultArray = await getListProduct("hot");
 
     const filteredResult = resultArray.filter((item) => {
@@ -807,6 +826,45 @@ router.get("/get-list-hot", get, async (request, response) => {
       );
     });
 
+    //sortBy: 0: Giá tăng dần, 1: Giá giảm dần, 2: mới nhất, 3: cũ nhất, 4: phổ biến nhất, 5: bán chạy nhất
+    switch (sortBy) {
+      case 0:
+        filteredResult.sort((a, b) => {
+          return a.productSKU[0].price - b.productSKU[0].price;
+        });
+        break;
+      case 1:
+        filteredResult.sort((a, b) => {
+          return b.productSKU[0].price - a.productSKU[0].price;
+        });
+        break;
+      case 2:
+        filteredResult.sort((a, b) => {
+          return new Date(b.createdDate) - new Date(a.createdDate);
+        });
+        break;
+      case 3:
+        filteredResult.sort((a, b) => {
+          return new Date(a.createdDate) - new Date(b.createdDate);
+        });
+        break;
+
+      case 4:
+        filteredResult.sort((a, b) => {
+          return (
+            b.sellQuantity / b.productSKU[0].price -
+            a.sellQuantity / a.productSKU[0].price
+          );
+        });
+        break;
+      case 5:
+        filteredResult.sort((a, b) => {
+          return b.sellQuantity - a.sellQuantity;
+        });
+        break;
+      default:
+        break;
+    }
     // Phân trang
     const paginatedResult = filteredResult.slice(offset, offset + limit);
 
@@ -824,6 +882,7 @@ router.get("/get-list-good-price-today", get, async (request, response) => {
     var offset = parseInt(request.query.offset) || 0;
     var limit = parseInt(request.query.limit) || 10;
     var search = request.query.search ? request.query.search.toLowerCase() : "";
+    var sortBy = parseInt(request.query.sortBy);
 
     const resultArray = await getListProduct("good-price-today");
 
@@ -851,7 +910,45 @@ router.get("/get-list-good-price-today", get, async (request, response) => {
         productMadeInMatch
       );
     });
+    //sortBy: 0: Giá tăng dần, 1: Giá giảm dần, 2: mới nhất, 3: cũ nhất, 4: phổ biến nhất, 5: bán chạy nhất
+    switch (sortBy) {
+      case 0:
+        filteredResult.sort((a, b) => {
+          return a.productSKU[0].price - b.productSKU[0].price;
+        });
+        break;
+      case 1:
+        filteredResult.sort((a, b) => {
+          return b.productSKU[0].price - a.productSKU[0].price;
+        });
+        break;
+      case 2:
+        filteredResult.sort((a, b) => {
+          return new Date(b.createdDate) - new Date(a.createdDate);
+        });
+        break;
+      case 3:
+        filteredResult.sort((a, b) => {
+          return new Date(a.createdDate) - new Date(b.createdDate);
+        });
+        break;
 
+      case 4:
+        filteredResult.sort((a, b) => {
+          return (
+            b.sellQuantity / b.productSKU[0].price -
+            a.sellQuantity / a.productSKU[0].price
+          );
+        });
+        break;
+      case 5:
+        filteredResult.sort((a, b) => {
+          return b.sellQuantity - a.sellQuantity;
+        });
+        break;
+      default:
+        break;
+    }
     // Phân trang
     const paginatedResult = filteredResult.slice(offset, offset + limit);
 

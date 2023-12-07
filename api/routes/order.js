@@ -421,7 +421,7 @@ async function getListOrderByStatus(orderStatus, idAccount) {
           oi.orderItemJsonToString AS dataOrderItem
           FROM [User] AS u
           JOIN [Order] AS o ON u.id = o.idUser
-          JOIN Order_item AS oi ON oi.orderId = o.id
+          LEFT JOIN Order_item AS oi ON oi.orderId = o.id
           LEFT JOIN Payment_order AS po ON po.orderId = o.id
           LEFT JOIN OrderTracking AS ot ON o.id = ot.orderId
           WHERE

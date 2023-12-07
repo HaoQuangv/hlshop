@@ -2,25 +2,30 @@ const database = require("../config");
 
 async function getImageListBySKU(productID, sku) {
   const resultImageList = [];
-  if (sku.idAttributeValue1 === null) {
-    const queryImage =
-      "SELECT id AS mediaID, linkString AS linkString, title AS title, description AS description FROM Media WHERE id_product = @idProduct AND isDefault = 1";
-    const imageResult = await database
-      .request()
-      .input("idProduct", productID)
-      .query(queryImage);
-    resultImageList.push(imageResult.recordset[0]);
-    return resultImageList;
-  } else {
+  if (sku.idAttributeValue1 !== null) {
     const queryImage =
       "SELECT id AS mediaID, linkString AS linkString, title AS title, description AS description FROM Media WHERE productAttributeValueID = @productAttributeValueID";
     const imageResult = await database
       .request()
       .input("productAttributeValueID", sku.idAttributeValue1)
       .query(queryImage);
-    resultImageList.push(imageResult.recordset[0]);
-    return resultImageList;
+    if (
+      imageResult.recordset &&
+      imageResult.recordset.length > 0 &&
+      imageResult.recordset[0].linkString !== null
+    ) {
+      resultImageList.push(imageResult.recordset[0]);
+      return resultImageList;
+    }
   }
+  const queryImage =
+    "SELECT id AS mediaID, linkString AS linkString, title AS title, description AS description FROM Media WHERE id_product = @idProduct AND isDefault = 1";
+  const imageResult = await database
+    .request()
+    .input("idProduct", productID)
+    .query(queryImage);
+  resultImageList.push(imageResult.recordset[0]);
+  return resultImageList;
 }
 
 async function getAttributes(productID, sku) {
