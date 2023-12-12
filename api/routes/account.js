@@ -336,22 +336,29 @@ router.post("/signin-email", async (request, response) => {
       });
     } else {
       if (result.recordset[0].password === password) {
-        if (result.recordset[0].isVerify === 0) {
-          response.status(400).json({
-            errorCode: "MSG0046",
-            message: "Account is not verified",
-          });
+        if (result.recordset[0].role === 0) {
+          if (result.recordset[0].isVerify === 0) {
+            response.status(400).json({
+              errorCode: "MSG0046",
+              message: "Account is not verified",
+            });
+          } else {
+            const token = jwt.sign(
+              { uuid: result.recordset[0].id },
+              process.env.privateKey,
+              { expiresIn: "10h" }
+            );
+            response.status(201).json({
+              token: token,
+              userID: result.recordset[0].id,
+              userLogin: email,
+              accountType: result.recordset[0].role,
+            });
+          }
         } else {
-          const token = jwt.sign(
-            { uuid: result.recordset[0].id },
-            process.env.privateKey,
-            { expiresIn: "10h" }
-          );
-          response.status(201).json({
-            token: token,
-            userID: result.recordset[0].id,
-            userLogin: email,
-            accountType: result.recordset[0].role,
+          response.status(400).json({
+            errorCode: "MSG0047",
+            message: "Ban khong co quyen dang nhap",
           });
         }
       } else {
@@ -383,22 +390,29 @@ router.post("/signin-phone", async (request, response) => {
       });
     } else {
       if (result.recordset[0].password === password) {
-        if (result.recordset[0].isVerify === 0) {
-          response.status(400).json({
-            errorCode: "MSG0046",
-            message: "Account is not verified",
-          });
+        if (result.recordset[0].role === 1) {
+          if (result.recordset[0].isVerify === 0) {
+            response.status(400).json({
+              errorCode: "MSG0046",
+              message: "Account is not verified",
+            });
+          } else {
+            const token = jwt.sign(
+              { uuid: result.recordset[0].id },
+              process.env.privateKey,
+              { expiresIn: "10h" }
+            );
+            response.status(201).json({
+              token: token,
+              userID: result.recordset[0].id,
+              userLogin: phone,
+              accountType: result.recordset[0].role,
+            });
+          }
         } else {
-          const token = jwt.sign(
-            { uuid: result.recordset[0].id },
-            process.env.privateKey,
-            { expiresIn: "10h" }
-          );
-          response.status(201).json({
-            token: token,
-            userID: result.recordset[0].id,
-            userLogin: phone,
-            accountType: result.recordset[0].role,
+          response.status(400).json({
+            errorCode: "MSG0047",
+            message: "Ban khong co quyen dang nhap",
           });
         }
       } else {
