@@ -94,7 +94,7 @@ async function getProductDetail(idProduct) {
             contactFullName: "Bùi Hào Quang",
             userType: 0,
             linkString:
-              "https://storage.googleapis.com/hlsop-393ef.appspot.com/Kurumi.jpg?GoogleAccessId=firebase-adminsdk-5uq3u%40hlsop-393ef.iam.gserviceaccount.com&Expires=16446992400&Signature=URnlqluKjIKXmYPn2kkeuHnFSLGlOh8UVOMDzVLki8Jr5Vm7dEsCpik%2BaX%2Bcec7AGwqNyNMfowi7Udn8zu9sOVrRP8zwIkGMRTQ6pEfu9H9aeBJJeDj7qEkNsNoV%2BxHyWU7mACqD6eG0qIrtoknwOeEzuesJQSUyTpDls2VVtPeaBPD4Am7tj%2FCSBOUDKL3dC5HFKh%2F3fkzmYEGJOj7kE1CnBIfEXHElUfE03xAP682UzlEEp4SQGTRVWjHWnq5GmbImUHrKtUvVaSUcmm%2FJEfo542pk%2FYvs0HW1VxSvkS27F2xkgvuMFjN3DM8v%2BtEYlXhrObCf6G7N8aDiNipe0Q%3D%3D",
+              "https://storage.googleapis.com/hlsop-393ef.appspot.com/image.png?GoogleAccessId=firebase-adminsdk-5uq3u%40hlsop-393ef.iam.gserviceaccount.com&Expires=16730298000&Signature=mdOGFfym9%2FHsZgKS5l1NnpGX7yWhHahhEB7TXkPv9zbE8GbJ6Akf1HSNNpyLD7VRY5O%2BlWTuQWdv2wu6bFyXZmvlp%2FgR5AoNqamat8NqZ79QVIT0yyN36D6dVjliL2U61%2Fg2Cl6ZSYXnXudcC6TXFVhlbsCb7gua7tBCYbB1XDPC4EiAT47ztd256TmB%2B1jwMBz3w24hB7xt7nWwv6Pk3oc4XiyjeZAIjAsVYIiCwMTjg0lvkoC279wzfeEZapDkWwS8f4NgT8faJbaLrP4ZOTMl2EQYfomVdQwTjdxxt7avrRJyaRhd1yzV63afuEx6%2Ff71QmgY9Gxp7U%2F%2Fygjr3g%3D%3D",
           },
           productCategory: {
             productCategoryID: item.productCategoryID,
