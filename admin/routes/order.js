@@ -92,7 +92,10 @@ async function getListOrderByStatus(orderStatus, idAccount) {
             actionDate: item.actionDate,
             orderStatus: item.orderStatusTracking,
           },
-          ...rest,
+          orderCode: item.orderCode,
+          paymentMethod: item.paymentMethod,
+          orderStatus: item.orderStatus,
+          finishPay: item.finishPay,
         };
       }
     });
@@ -242,6 +245,44 @@ router.post(
     }
   }
 );
+async function createOrderTracking(
+  orderID,
+  transaction,
+  DateNow,
+  orderStatus = 0
+) {
+  try {
+    const query = `
+        INSERT INTO OrderTracking (orderId, orderStatus, actionDate)
+        VALUES (@orderId, @orderStatus, @createdDate);
+        `;
+    await transaction
+      .request()
+      .input("orderId", orderID)
+      .input("orderStatus", orderStatus)
+      .input("createdDate", DateNow)
+      .query(query);
+  } catch (error) {
+    throw "Error in createOrderTracking";
+  }
+}
+async function updateOrderStatus(orderID, orderStatus, transaction) {
+  try {
+    const query = `
+        UPDATE [Order]
+        SET orderStatus = @orderStatus
+        WHERE id = @orderID;
+        `;
+    await transaction
+      .request()
+      .input("orderID", orderID)
+      .input("orderStatus", orderStatus)
+      .query(query);
+  } catch (error) {
+    console.log(error);
+    throw "Error in updateOrderStatus";
+  }
+}
 
 function checkExpiredOrder(actionDate) {
   const currentDate = new Date();
