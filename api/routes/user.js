@@ -154,13 +154,15 @@ router.post(
         });
       } else {
         var image = "";
-        const blob = firebase.bucket.file(request.file.originalname);
+        const uniqueFileName = Date.now() + "-" + request.file.originalname;
+        const blob = firebase.bucket.file(uniqueFileName);
         const blobWriter = blob.createWriteStream({
           metadata: {
             contentType: request.file.mimetype,
           },
         });
         blobWriter.on("error", (err) => {
+          console.log(err);
           response.status(500).json({
             error: err.message,
           });
@@ -217,13 +219,16 @@ router.post(
         });
       } else {
         var image = "";
-        const blob = firebase.bucket.file(request.file.originalname);
+
+        const uniqueFileName = Date.now() + "-" + request.file.originalname;
+        const blob = firebase.bucket.file(uniqueFileName);
         const blobWriter = blob.createWriteStream({
           metadata: {
             contentType: request.file.mimetype,
           },
         });
         blobWriter.on("error", (err) => {
+          console.log(err);
           response.status(500).json({
             error: err.message,
           });

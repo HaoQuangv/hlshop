@@ -41,7 +41,9 @@ async function getListOrderByStatus(orderStatus, idAccount) {
           o.orderStatus,
           o.orderShippingFee,
           po.finish_pay AS finishPay,
-          oi.orderItemJsonToString AS dataOrderItem
+          oi.orderItemJsonToString AS dataOrderItem,
+          ot.actionDate,
+          ot.orderStatus AS orderStatusTracking
           FROM [Order] AS o
           LEFT JOIN Order_item AS oi ON oi.orderId = o.id
           LEFT JOIN Payment_order AS po ON po.orderId = o.id
@@ -86,6 +88,10 @@ async function getListOrderByStatus(orderStatus, idAccount) {
           orderID,
           dataOrderItem: parsedDataOrderItem ? [parsedDataOrderItem] : [],
           orderShippingFee: parsedOrderShippingFee,
+          actionDateNewest: {
+            actionDate: item.actionDate,
+            orderStatus: item.orderStatusTracking,
+          },
           ...rest,
         };
       }
