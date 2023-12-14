@@ -1,5 +1,4 @@
 const express = require("express");
-const app = require("../../index");
 const axios = require("axios");
 const router = express.Router();
 const db_action = require("../../utils/db_action");
@@ -10,8 +9,6 @@ const database = require("../../config");
 
 const checkAuth = require("../../middleware/check_auth");
 const checkRole = require("../../middleware/check_role_user");
-const e = require("express");
-const { get } = require("./account");
 
 router.post("/create", checkAuth, checkRole, async (request, response) => {
   let transaction = new sql.Transaction(database);
@@ -61,9 +58,8 @@ router.post("/create", checkAuth, checkRole, async (request, response) => {
           feeText,
           totalOrder
         );
-        if (paymentMethod === 1) {
-          await createPaymentOrder(orderID, totalOrder, DateNow, transaction);
-        }
+        await createPaymentOrder(orderID, totalOrder, DateNow, transaction);
+
         await createOrderTracking(orderID, transaction, DateNow);
 
         await transaction.commit();
@@ -84,16 +80,16 @@ router.post("/create", checkAuth, checkRole, async (request, response) => {
     console.log(error);
     if (error.code === "EREQUEST") {
       return response.status(500).json({
-        error: "Database error",
+        message: "Database error",
       });
     }
     if (error.code === "EABORT") {
       return response.status(500).json({
-        error: "Invalid input data",
+        message: "Invalid input data",
       });
     }
     response.status(500).json({
-      error: error,
+      message: error,
     });
   }
 });
@@ -121,7 +117,6 @@ async function getFeeOrder(toDistrictID, toWardCode, insuranceValue) {
     };
     const response = await axios.post(apiUrl, requestBody, { headers });
     var feeShip = response.data.data.total;
-    console.log("feeShip", feeShip);
     return feeShip;
   } catch (error) {
     throw error;
@@ -204,7 +199,12 @@ async function deleteCartItem(cartID, userID, transaction) {
   }
 }
 
-async function createOrderTracking(orderID, transaction, DateNow) {
+async function createOrderTracking(
+  orderID,
+  transaction,
+  DateNow,
+  orderStatus = 0
+) {
   try {
     const query = `
         INSERT INTO OrderTracking (orderId, orderStatus, actionDate)
@@ -213,7 +213,7 @@ async function createOrderTracking(orderID, transaction, DateNow) {
     await transaction
       .request()
       .input("orderId", orderID)
-      .input("orderStatus", 0)
+      .input("orderStatus", orderStatus)
       .input("createdDate", DateNow)
       .query(query);
   } catch (error) {
@@ -323,7 +323,6 @@ async function mapCarttoOrderItem(cartID, orderID, userID, transaction) {
         .input("orderItemJsonToString", JSON.stringify(orderItem))
         .input("orderItemID", orderItem.orderItemID)
         .query(queryUpdateOrderItem);
-      console.log(result.recordset[0]);
       return result.recordset[0].price * result.recordset[0].quantity;
     } else {
       throw "Not Exist cartID";
@@ -400,9 +399,8 @@ router.get("/get-list", checkAuth, checkRole, async (request, response) => {
         error: "",
       });
     }
-
     response.status(500).json({
-      error: error,
+      message: error,
     });
   }
 });
@@ -415,12 +413,16 @@ async function getListOrderByStatus(orderStatus, idAccount) {
           o.paymentMethod,
           o.orderStatus,
           o.orderShippingFee,
+          po.finish_pay AS finishPay,
           oi.orderItemJsonToString AS dataOrderItem
           FROM [User] AS u
           JOIN [Order] AS o ON u.id = o.idUser
-          JOIN Order_item AS oi ON oi.orderId = o.id
-          WHERE u.id_account = @idAccount AND o.orderStatus = @orderStatus
-          ORDER BY o.createdDate DESC;
+          LEFT JOIN Order_item AS oi ON oi.orderId = o.id
+          LEFT JOIN Payment_order AS po ON po.orderId = o.id
+          LEFT JOIN OrderTracking AS ot ON o.id = ot.orderId
+          WHERE
+          u.id_account = @idAccount AND o.orderStatus = @orderStatus
+          ORDER BY COALESCE(ot.actionDate, o.createdDate) DESC;
           `;
     const result = await database
       .request()
@@ -428,7 +430,6 @@ async function getListOrderByStatus(orderStatus, idAccount) {
       .input("orderStatus", orderStatus)
       .query(query);
     const resultMap = {};
-
     result.recordset.forEach((item) => {
       const { orderID, dataOrderItem, orderShippingFee, ...rest } = item;
 
@@ -439,12 +440,26 @@ async function getListOrderByStatus(orderStatus, idAccount) {
         parsedOrderShippingFee = {};
       }
 
+      let parsedDataOrderItem;
+      try {
+        parsedDataOrderItem = JSON.parse(dataOrderItem);
+      } catch (error) {
+        parsedDataOrderItem = null;
+      }
+
       if (resultMap[orderID]) {
-        resultMap[orderID].dataOrderItem.push(JSON.parse(dataOrderItem));
+        const existingDataItem = resultMap[orderID].dataOrderItem.find(
+          (existingItem) =>
+            JSON.stringify(existingItem) === JSON.stringify(parsedDataOrderItem)
+        );
+
+        if (!existingDataItem) {
+          resultMap[orderID].dataOrderItem.push(parsedDataOrderItem);
+        }
       } else {
         resultMap[orderID] = {
           orderID,
-          dataOrderItem: [JSON.parse(dataOrderItem)],
+          dataOrderItem: parsedDataOrderItem ? [parsedDataOrderItem] : [],
           orderShippingFee: parsedOrderShippingFee,
           ...rest,
         };
@@ -457,6 +472,7 @@ async function getListOrderByStatus(orderStatus, idAccount) {
     throw "Error in getOrderId";
   }
 }
+
 router.get("/get-detail", checkAuth, checkRole, async (request, response) => {
   try {
     const { orderID } = request.query;
@@ -470,9 +486,8 @@ router.get("/get-detail", checkAuth, checkRole, async (request, response) => {
         error: "",
       });
     }
-
     response.status(500).json({
-      error: error,
+      message: error,
     });
   }
 });
@@ -510,9 +525,11 @@ async function getOrderDetailByID(orderID) {
     o.paymentMethod,
     o.orderStatus,
     o.orderShippingFee,
+    po.finish_pay AS finishPay,
     oi.orderItemJsonToString AS dataOrderItem
     FROM [Order] AS o
     JOIN Order_item AS oi ON o.id = oi.orderId
+		LEFT JOIN Payment_order AS po ON po.orderId = o.id
     WHERE o.id = @orderID;
     `;
     const result = await database
@@ -572,7 +589,7 @@ router.get(
       }
 
       response.status(500).json({
-        error: error,
+        message: error,
       });
     }
   }
@@ -604,14 +621,7 @@ async function getListOrderStatusTracking(orderID) {
     throw "Error in getListOrderStatusTracking";
   }
 }
-//  ORDER_STATUS_NEW : 0,
-//   ORDER_STATUS_APPROVED : 1,
-//   ORDER_STATUS_PACKING : 2,
-//   ORDER_STATUS_ON_DELIVERING : 3,
-//   ORDER_STATUS_DELIVERY_SUCCESS : 4,
-//   ORDER_STATUS_CUSTOMER_CANCELLED : 5,
-//   ORDER_STATUS_SELLER_CANCELLED : 6,
-//   ORDER_STATUS_RETURNED : 7,
+
 router.get(
   "/get-count-list",
   checkAuth,
@@ -628,7 +638,7 @@ router.get(
       }
 
       response.status(500).json({
-        error: "Internal Server Error",
+        message: "Không thể lấy số lượng đơn hàng",
       });
     }
   }
@@ -661,27 +671,6 @@ async function countOrders(idAccount) {
   }
 }
 
-router.post(
-  "/test-update-order-status",
-  checkAuth,
-  checkRole,
-  async (request, response) => {
-    try {
-      response.status(200).json();
-    } catch (error) {
-      // Xử lý lỗi cụ thể
-      if (error.code === "EREQUEST") {
-        return response.status(500).json({
-          error: "",
-        });
-      }
-
-      response.status(500).json({
-        error: "Internal Server Error",
-      });
-    }
-  }
-);
 router.get("/payment-success", async (req, res) => {
   // Lấy dữ liệu từ request
   const {
@@ -700,7 +689,6 @@ router.get("/payment-success", async (req, res) => {
     signature,
     paymentOption,
   } = req.query;
-  console.log(req.query);
   try {
     const paymentOrder = await getPaymentOrderbyOrderID(orderId);
     if (
@@ -771,13 +759,16 @@ router.post(
   checkAuth,
   checkRole,
   async (request, response) => {
-    let transaction = new sql.Transaction(database);
     try {
       const { orderID } = request.query;
       const DateNow = new Date();
       const orderDetail = await getOrderPayment(orderID, request.userData.uuid);
       const isExpired = isCreatedLinkExpired(orderDetail.createdLink);
-      if (orderDetail.paymentMethod !== 1 || orderDetail.finishPay !== false) {
+      if (
+        orderDetail.paymentMethod !== 1 ||
+        orderDetail.finishPay !== false ||
+        orderDetail.orderStatus !== 0
+      ) {
         throw "Payment method is not momo or order is paid";
       } else {
         if (orderDetail.deeplink !== null && !isExpired) {
@@ -816,12 +807,12 @@ router.post(
     } catch (error) {
       if (error.code === "EREQUEST") {
         return response.status(500).json({
-          error: "",
+          message: "",
         });
       }
 
       response.status(500).json({
-        error: error,
+        message: error,
       });
     }
   }
@@ -899,5 +890,150 @@ async function getOrderPayment(orderID, idAccount) {
     throw error;
   }
 }
+
+router.post(
+  "/user-update-order-status",
+  checkAuth,
+  checkRole,
+  async (request, response) => {
+    let transaction = new sql.Transaction(database);
+    try {
+      const orderID = request.query.orderID;
+      const orderStatus = Number(request.query.orderStatus);
+      const now = new Date();
+      const [currentOrderStatus, finishPay] =
+        await checkOrderExistAndGetCurrentStatusAndFinishPay(
+          orderID,
+          request.userData.uuid
+        );
+      await transaction
+        .begin()
+        .then(async () => {
+          switch (currentOrderStatus) {
+            case 0:
+              switch (orderStatus) {
+                case 5:
+                  if (finishPay === false) {
+                    // huy don hang
+                    await updateOrderStatus(orderID, orderStatus, transaction);
+                    await createOrderTracking(
+                      orderID,
+                      transaction,
+                      now,
+                      orderStatus
+                    );
+                  } else {
+                    throw "Don hang da thanh toan";
+                  }
+                  break;
+                default:
+                  throw "Invalid order status";
+              }
+              break;
+            case 3:
+              switch (orderStatus) {
+                case 4:
+                  // nhan hang
+                  await updateOrderStatus(orderID, orderStatus, transaction);
+                  await createOrderTracking(
+                    orderID,
+                    transaction,
+                    now,
+                    orderStatus
+                  );
+                  break;
+                case 7:
+                  // tra hang
+                  await updateOrderStatus(orderID, orderStatus, transaction);
+                  await createOrderTracking(
+                    orderID,
+                    transaction,
+                    now,
+                    orderStatus
+                  );
+                  break;
+                default:
+                  throw "Invalid order status";
+              }
+              break;
+            default:
+              throw "Invalid order status";
+          }
+          await transaction.commit();
+          response.status(200).json({
+            message: "Update order status success",
+          });
+        })
+        .catch(async (err) => {
+          await transaction.rollback();
+          throw err;
+        });
+    } catch (error) {
+      if (error.code === "EREQUEST") {
+        return response.status(500).json({
+          errorCode: error,
+        });
+      }
+      response.status(500).json({
+        errorCode: error,
+      });
+    }
+  }
+);
+
+async function updateOrderStatus(orderID, orderStatus, transaction) {
+  try {
+    const query = `
+        UPDATE [Order]
+        SET orderStatus = @orderStatus
+        WHERE id = @orderID;
+        `;
+    await transaction
+      .request()
+      .input("orderID", orderID)
+      .input("orderStatus", orderStatus)
+      .query(query);
+  } catch (error) {
+    console.log(error);
+    throw "Error in updateOrderStatus";
+  }
+}
+
+async function checkOrderExistAndGetCurrentStatusAndFinishPay(
+  orderID,
+  idAccount
+) {
+  try {
+    const query = `
+    SELECT
+    o.orderStatus,
+    po.finish_pay AS finishPay
+    FROM [User] AS u
+    JOIN [Order] AS o ON u.id = o.idUser
+    LEFT JOIN Payment_order AS po ON o.id = po.orderId
+    WHERE u.id_account = @idAccount AND o.id = @orderID
+    `;
+    const result = await database
+      .request()
+      .input("idAccount", idAccount)
+      .input("orderID", orderID)
+      .query(query);
+    if (result.recordset.length === 0) {
+      throw "Error in checkOrderExist";
+    }
+    return [result.recordset[0].orderStatus, result.recordset[0].finishPay];
+  } catch (error) {
+    throw error;
+  }
+}
+
+//  ORDER_STATUS_NEW : 0,
+//   ORDER_STATUS_APPROVED : 1,
+//   ORDER_STATUS_PACKING : 2,
+//   ORDER_STATUS_ON_DELIVERING : 3,
+//   ORDER_STATUS_DELIVERY_SUCCESS : 4,
+//   ORDER_STATUS_CUSTOMER_CANCELLED : 5,
+//   ORDER_STATUS_SELLER_CANCELLED : 6,
+//   ORDER_STATUS_RETURNED : 7,
 
 module.exports = router;

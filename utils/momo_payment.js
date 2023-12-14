@@ -44,9 +44,6 @@ async function createMomoPayment(orderId, amount) {
     signature,
   };
 
-  // console.log("Request body: ");
-  // console.log(requestBody);
-
   try {
     const response = await axios.post(
       "https://test-payment.momo.vn/gateway/api/developer-web/init",
@@ -57,9 +54,6 @@ async function createMomoPayment(orderId, amount) {
         },
       }
     );
-
-    // console.log("Response data: ");
-    // console.log(response.data);
 
     const resultData = {
       signature: signature,
@@ -116,7 +110,6 @@ function generateSignature({
     .createHmac("sha256", secretKey)
     .update(rawSignature)
     .digest("hex");
-  console.log("signature: ", signature);
   return signature;
 }
 
