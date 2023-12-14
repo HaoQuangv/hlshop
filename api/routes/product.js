@@ -149,12 +149,9 @@ router.get("/get-detail", async (request, response) => {
   }
 });
 
-async function getListProduct(typeOfList, idCategory) {
+async function getListProduct() {
   try {
-    var queryProduct = "";
-    switch (typeOfList) {
-      case "best-seller":
-        queryProduct = `
+    const queryProduct = `
               SELECT
               p.id AS productID,
               p.name AS productName,
@@ -177,85 +174,6 @@ async function getListProduct(typeOfList, idCategory) {
               WHERE ps.quantity > 0 AND ps.enable = 1
               ORDER BY p.sellQuantity DESC
             `;
-        break;
-      case "new":
-        queryProduct = `
-              SELECT
-              p.id AS productID,
-              p.name AS productName,
-              p.description AS productDescription,
-              p.slogan AS productSlogan,
-              p.notes AS productNotes,
-              p.madeIn AS productMadeIn,
-              p.sellQuantity AS sellQuantity,
-              p.createdDate AS createdDate,
-              ps.id AS productSKUID,
-              ps.price AS price,
-              ps.priceBefore AS priceBefore,
-              m.id AS mediaID,
-              m.linkString AS linkString,
-              m.title AS title,
-              m.description AS description
-              FROM Product as p
-              JOIN ProductSku as ps ON p.id = ps.idProduct
-              JOIN Media as m ON p.id = m.id_product
-              WHERE ps.quantity > 0 AND ps.enable = 1
-              ORDER BY p.createdDate DESC
-            `;
-        break;
-      case "hot":
-        queryProduct = `
-              SELECT
-              p.id AS productID,
-              p.name AS productName,
-              p.description AS productDescription,
-              p.slogan AS productSlogan,
-              p.notes AS productNotes,
-              p.madeIn AS productMadeIn,
-              p.sellQuantity AS sellQuantity,
-              p.createdDate AS createdDate,
-              ps.id AS productSKUID,
-              ps.price AS price,
-              ps.priceBefore AS priceBefore,
-              m.id AS mediaID,
-              m.linkString AS linkString,
-              m.title AS title,
-              m.description AS description
-              FROM Product as p
-              JOIN ProductSku as ps ON p.id = ps.idProduct
-              JOIN Media as m ON p.id = m.id_product
-              WHERE ps.quantity > 0 AND ps.enable = 1
-              ORDER BY p.sellQuantity, p.createdDate DESC
-            `;
-        break;
-      case "good-price-today":
-        queryProduct = `
-              SELECT
-              p.id AS productID,
-              p.name AS productName,
-              p.description AS productDescription,
-              p.slogan AS productSlogan,
-              p.notes AS productNotes,
-              p.madeIn AS productMadeIn,
-              p.sellQuantity AS sellQuantity,
-              p.createdDate AS createdDate,
-              ps.id AS productSKUID,
-              ps.price AS price,
-              ps.priceBefore AS priceBefore,
-              m.id AS mediaID,
-              m.linkString AS linkString,
-              m.title AS title,
-              m.description AS description
-              FROM Product as p
-              JOIN ProductSku as ps ON p.id = ps.idProduct
-              JOIN Media as m ON p.id = m.id_product
-              WHERE ps.quantity > 0 AND ps.enable = 1
-              ORDER BY ps.price ASC
-            `;
-        break;
-      default:
-        break;
-    }
     const result = await database.request().query(queryProduct);
 
     const resultMap = {};
@@ -306,7 +224,11 @@ router.get("/get-list-best-seller", async (request, response) => {
     var minAmount = parseInt(request.query.minAmount);
     var maxAmount = parseInt(request.query.maxAmount);
 
-    const resultArray = await getListProduct("best-seller");
+    const resultArray = await getListProduct();
+
+    resultArray.sort((a, b) => {
+      return b.sellQuantity - a.sellQuantity;
+    });
 
     const filteredResult = resultArray.filter((item) => {
       const productNameMatch = item.productName
@@ -325,7 +247,7 @@ router.get("/get-list-best-seller", async (request, response) => {
         ? item.productMadeIn.toLowerCase().includes(search)
         : false;
       const priceMatch =
-        !isNaN(minAmount) && !isNaN(maxAmount) // Check if minAmount and maxAmount are valid numbers
+        !isNaN(minAmount) && !isNaN(maxAmount)
           ? item.productSKU &&
             item.productSKU.length > 0 &&
             item.productSKU[0].price >= minAmount &&
@@ -400,7 +322,11 @@ router.get("/get-list-new", async (request, response) => {
     var minAmount = parseInt(request.query.minAmount);
     var maxAmount = parseInt(request.query.maxAmount);
 
-    const resultArray = await getListProduct("new");
+    const resultArray = await getListProduct();
+
+    resultArray.sort((a, b) => {
+      return new Date(b.createdDate) - new Date(a.createdDate);
+    });
 
     const filteredResult = resultArray.filter((item) => {
       const productNameMatch = item.productName
@@ -493,7 +419,24 @@ router.get("/get-list-hot", async (request, response) => {
     var search = request.query.search ? request.query.search.toLowerCase() : "";
     var minAmount = parseInt(request.query.minAmount);
     var maxAmount = parseInt(request.query.maxAmount);
-    const resultArray = await getListProduct("hot");
+    const resultArray = await getListProduct();
+
+    resultArray.sort((a, b) => {
+      const weightSellQuantity = 1; // Trọng số cho sellQuantity
+      const weightPrice = 2; // Trọng số cho price
+      const weightPriceBefore = -1; // Trọng số cho priceBefore (âm để giảm điểm nếu có giảm giá)
+
+      const scoreA =
+        a.sellQuantity * weightSellQuantity +
+        a.price * weightPrice -
+        a.priceBefore * weightPriceBefore;
+      const scoreB =
+        b.sellQuantity * weightSellQuantity +
+        b.price * weightPrice -
+        b.priceBefore * weightPriceBefore;
+
+      return scoreB - scoreA; // Sắp xếp giảm dần theo điểm hotness
+    });
 
     const filteredResult = resultArray.filter((item) => {
       const productNameMatch = item.productName
@@ -588,7 +531,17 @@ router.get("/get-list-good-price-today", async (request, response) => {
     var minAmount = parseInt(request.query.minAmount);
     var maxAmount = parseInt(request.query.maxAmount);
 
-    const resultArray = await getListProduct("good-price-today");
+    const resultArray = await getListProduct();
+
+    resultArray.sort((a, b) => {
+      const calculateDiscountRate = (product) =>
+        (product.priceBefore - product.price) / product.priceBefore;
+
+      const discountRateB = calculateDiscountRate(b.productSKU[0]);
+      const discountRateA = calculateDiscountRate(a.productSKU[0]);
+
+      return discountRateB - discountRateA;
+    });
 
     const filteredResult = resultArray.filter((item) => {
       const productNameMatch = item.productName
