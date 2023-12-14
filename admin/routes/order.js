@@ -307,7 +307,7 @@ async function checkOrderExist(orderID) {
     const query = `
     SELECT
     1
-    FROM [Order]
+    FROM [Order] AS o
     WHERE  o.id = @orderID
     `;
     const result = await database
@@ -456,16 +456,16 @@ async function countOrders() {
   try {
     const query = `
     SELECT
-    COUNT(CASE WHEN o.orderStatus = 0 THEN 1 END) AS countNew,
-    COUNT(CASE WHEN o.orderStatus = 1 THEN 1 END) AS countApproved,
-    COUNT(CASE WHEN o.orderStatus = 2 THEN 1 END) AS countPacking,
-    COUNT(CASE WHEN o.orderStatus = 3 THEN 1 END) AS countOnDelivering,
-    COUNT(CASE WHEN o.orderStatus = 4 THEN 1 END) AS countDeliverySuccess,
-    COUNT(CASE WHEN o.orderStatus = 5 THEN 1 END) AS countCustomerCancelled,
-    COUNT(CASE WHEN o.orderStatus = 6 THEN 1 END) AS countSellerCancelled,
-    COUNT(CASE WHEN o.orderStatus = 7 THEN 1 END) AS countReturned,
-    COUNT(CASE WHEN o.orderStatus = 8 THEN 1 END) AS countCancel
-    FROM [Order]
+    SUM(CASE WHEN o.orderStatus = 0 THEN 1 ELSE 0 END) AS countNew,
+    SUM(CASE WHEN o.orderStatus = 1 THEN 1 ELSE 0 END) AS countApproved,
+    SUM(CASE WHEN o.orderStatus = 2 THEN 1 ELSE 0 END) AS countPacking,
+    SUM(CASE WHEN o.orderStatus = 3 THEN 1 ELSE 0 END) AS countOnDelivering,
+    SUM(CASE WHEN o.orderStatus = 4 THEN 1 ELSE 0 END) AS countDeliverySuccess,
+    SUM(CASE WHEN o.orderStatus = 5 THEN 1 ELSE 0 END) AS countCustomerCancelled,
+    SUM(CASE WHEN o.orderStatus = 6 THEN 1 ELSE 0 END) AS countSellerCancelled,
+    SUM(CASE WHEN o.orderStatus = 7 THEN 1 ELSE 0 END) AS countReturned,
+    SUM(CASE WHEN o.orderStatus = 8 THEN 1 ELSE 0 END) AS countCancel
+    FROM [Order] o;
     `;
     const result = await database.request().query(query);
     return result.recordset[0];
