@@ -278,4 +278,200 @@ async function checkOrderExistAndGetCurrentStatusAndFinishPayAdmin(orderID) {
   }
 }
 
+router.get(
+  "/get-detail",
+  checkAuth,
+  checkRoleAdmin,
+  async (request, response) => {
+    try {
+      const { orderID } = request.query;
+
+      await checkOrderExist(orderID);
+      const orderItemList = await getOrderDetailByID(orderID);
+      response.status(200).json(orderItemList);
+    } catch (error) {
+      if (error.code === "EREQUEST") {
+        return response.status(500).json({
+          error: "",
+        });
+      }
+      response.status(500).json({
+        message: error,
+      });
+    }
+  }
+);
+
+async function checkOrderExist(orderID) {
+  try {
+    const query = `
+    SELECT
+    1
+    FROM [Order]
+    WHERE  o.id = @orderID
+    `;
+    const result = await database
+      .request()
+      .input("orderID", orderID)
+      .query(query);
+    if (result.recordset.length === 0) {
+      throw "Error in checkOrderExist";
+    }
+    return;
+  } catch (error) {
+    throw "Error in checkOrderExist";
+  }
+}
+
+async function getOrderDetailByID(orderID) {
+  try {
+    const query = `
+    SELECT
+    o.receiverAddress,
+    o.id AS orderID,
+    o.orderCode,
+    o.paymentMethod,
+    o.orderStatus,
+    o.orderShippingFee,
+    po.finish_pay AS finishPay,
+    oi.orderItemJsonToString AS dataOrderItem
+    FROM [Order] AS o
+    JOIN Order_item AS oi ON o.id = oi.orderId
+		LEFT JOIN Payment_order AS po ON po.orderId = o.id
+    WHERE o.id = @orderID;
+    `;
+    const result = await database
+      .request()
+      .input("orderID", orderID)
+      .query(query);
+
+    const resultMap = {};
+
+    result.recordset.forEach((item) => {
+      const {
+        receiverAddress,
+        orderID,
+        dataOrderItem,
+        orderShippingFee,
+        ...rest
+      } = item;
+
+      // Chuyển đổi chuỗi JSON thành đối tượng JSON
+      const parsedOrderShippingFee = JSON.parse(orderShippingFee);
+
+      if (resultMap[orderID]) {
+        resultMap[orderID].dataOrderItem.push(JSON.parse(dataOrderItem));
+      } else {
+        resultMap[orderID] = {
+          receiverAddresse: JSON.parse(receiverAddress),
+          orderID,
+          dataOrderItem: [JSON.parse(dataOrderItem)],
+          orderShippingFee: parsedOrderShippingFee,
+          ...rest,
+        };
+      }
+    });
+    const resultArray = Object.values(resultMap);
+    return resultArray[0];
+  } catch (error) {
+    throw "Error in getOrderDetail";
+  }
+}
+
+router.get(
+  "/get-order-status-tracking",
+  checkAuth,
+  checkRoleAdmin,
+  async (request, response) => {
+    try {
+      const { orderID } = request.query;
+      await checkOrderExist(orderID);
+      const orderStatusTrackingList = await getListOrderStatusTracking(orderID);
+      response.status(200).json(orderStatusTrackingList);
+    } catch (error) {
+      // Xử lý lỗi cụ thể
+      if (error.code === "EREQUEST") {
+        return response.status(500).json({
+          error: "",
+        });
+      }
+
+      response.status(500).json({
+        message: error,
+      });
+    }
+  }
+);
+
+async function getListOrderStatusTracking(orderID) {
+  try {
+    const query = `
+    SELECT
+    ot.id AS orderStatusTrackingID,
+    ot.orderId AS orderID,
+    ot.orderStatus,
+    ot.actionDate
+    FROM OrderTracking ot
+    WHERE ot.orderId = @orderID
+    ORDER BY ot.actionDate DESC;
+    `;
+    const result = await database
+      .request()
+      .input("orderID", orderID)
+      .query(query);
+    return result.recordset.map((item) => ({
+      orderStatusTrackingID: item.orderStatusTrackingID,
+      orderID: item.orderID,
+      orderStatus: Number(item.orderStatus), // Chuyển đổi thành số
+      actionDate: item.actionDate,
+    }));
+  } catch (error) {
+    throw "Error in getListOrderStatusTracking";
+  }
+}
+
+router.get(
+  "/get-count-list",
+  checkAuth,
+  checkRoleAdmin,
+  async (request, response) => {
+    try {
+      const responseCount = await countOrders();
+      response.status(200).json(responseCount);
+    } catch (error) {
+      if (error.code === "EREQUEST") {
+        return response.status(500).json({
+          error: "",
+        });
+      }
+
+      response.status(500).json({
+        message: "Không thể lấy số lượng đơn hàng",
+      });
+    }
+  }
+);
+
+async function countOrders() {
+  try {
+    const query = `
+    SELECT
+    COUNT(CASE WHEN o.orderStatus = 0 THEN 1 END) AS countNew,
+    COUNT(CASE WHEN o.orderStatus = 1 THEN 1 END) AS countApproved,
+    COUNT(CASE WHEN o.orderStatus = 2 THEN 1 END) AS countPacking,
+    COUNT(CASE WHEN o.orderStatus = 3 THEN 1 END) AS countOnDelivering,
+    COUNT(CASE WHEN o.orderStatus = 4 THEN 1 END) AS countDeliverySuccess,
+    COUNT(CASE WHEN o.orderStatus = 5 THEN 1 END) AS countCustomerCancelled,
+    COUNT(CASE WHEN o.orderStatus = 6 THEN 1 END) AS countSellerCancelled,
+    COUNT(CASE WHEN o.orderStatus = 7 THEN 1 END) AS countReturned,
+    COUNT(CASE WHEN o.orderStatus = 8 THEN 1 END) AS countCancel
+    FROM [Order]
+    `;
+    const result = await database.request().query(query);
+    return result.recordset[0];
+  } catch (error) {
+    throw "Error in countOrders";
+  }
+}
+
 module.exports = router;
