@@ -33,7 +33,7 @@ function sendOTP(email, otp) {
 
 function sendMessageVerifyOrder(email, orderCode, orderDate, products, totalFund, shippingFee, total, address, payment) {
   const mailOptions = {
-    from: '"HLSHOP Management"',
+    from: '"HLSHOP Management" <quangquangquangquang67@gmail.com>',
     to: email,
     subject: "Order Verification",
     text: `Dear ${email}\nThank you for choosing HLSHOP for shopping! Here are the details of your order:\n\nOrder Information:\n-Order code: ${orderCode}\nOrder Date: ${orderDate}\n\nProducts:\n${products}\n\nTotal Funds: ${totalFund}\n\nShipping fee: ${shippingFee}\n\nTotal: ${total}\n\nShipping address: ${address}\n\nPayment methods: ${payment}\n\nThank you for choosing HLSHOP. We are honored to serve you!\nRespect\nHLSHOP Management`,
