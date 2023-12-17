@@ -16,7 +16,7 @@ const transporter = nodemailer.createTransport({
 // Gửi email chứa OTP
 function sendOTP(email, otp) {
   const mailOptions = {
-    from: '"HLSHOP Management department account" <quangquangquangquang67@gmail.com>',
+    from: '"HLSHOP Management" <quangquangquangquang67@gmail.com>',
     to: email,
     subject: "OTP Verification",
     text: `Dear ${email}\nYour OTP code is: ${otp}\nIf you don't require this code, you can safely ignore this email. It's possible that someone else entered your email address by mistake.\n\nThank you,\nHLSHOP Management`,
