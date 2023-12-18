@@ -23,12 +23,20 @@ router.post(
     let transaction = new sql.Transaction(database);
     try {
       const jsonData = request.body;
-      const name = jsonData.name;
-      const slogan = jsonData.slogan;
-      const description = jsonData.description;
-      const notes = jsonData.notes;
-      const madeIn = jsonData.madeIn;
-      const uses = jsonData.uses;
+      const name = jsonData.productName;
+      const slogan = jsonData.productSlogan;
+      const description = jsonData.productDescription;
+      const notes = jsonData.productNotes;
+      const madeIn = jsonData.productMadeIn;
+      const uses = jsonData.productUses;
+      const ingredient = jsonData.productIngredient;
+      const objectsOfUse = jsonData.productObjectsOfUse;
+      const preserve = jsonData.productPreserve;
+      const instructionsForUse = jsonData.productInstructionsForUse;
+      const height = jsonData.productHeight;
+      const width = jsonData.productWidth;
+      const length = jsonData.productLength;
+      const weight = jsonData.productWeight;
       const sellQuantity = 0;
       const createdDate = new Date();
       const idCategory = jsonData.productCategoryID;
@@ -45,19 +53,32 @@ router.post(
             slogan,
             description,
             notes,
-            uses,
             madeIn,
+            uses,
+            ingredient,
+            objectsOfUse,
+            preserve,
+            instructionsForUse,
+            height,
+            width,
+            length,
+            weight,
             sellQuantity,
             createdDate,
             idCategory,
             idAccount
           );
+
+          for (let i = 0; i < avatarMediaIDS.length; i++) {
+            const MediaID = avatarMediaIDS[i];
+            await updateMedia0(transaction, id_product, MediaID.mediaID);
+          }
+
           const array_attribute = await insertProductAttributeAndValue(
             transaction,
             attributes,
             id_product
           );
-          console.log(111, array_attribute);
 
           await processProductSKU(
             transaction,
@@ -65,10 +86,6 @@ router.post(
             id_product,
             array_attribute
           );
-          for (let i = 0; i < avatarMediaIDS.length; i++) {
-            const MediaID = avatarMediaIDS[i];
-            await updateMedia(transaction, id_product, MediaID);
-          }
           await transaction.commit();
           response.status(200).json({
             status: 200,
@@ -101,6 +118,22 @@ router.post(
     }
   }
 );
+async function updateMedia0(transaction, id_product, MediaID) {
+  try {
+    const query = `
+      UPDATE Media
+      SET id_product = @id_product
+      WHERE id = @MediaID
+    `;
+    const result = await transaction
+      .request()
+      .input("id_product", id_product)
+      .input("MediaID", MediaID)
+      .query(query);
+  } catch (error) {
+    throw "Error update media Product";
+  }
+}
 
 async function updateMedia(
   transaction,
@@ -109,10 +142,6 @@ async function updateMedia(
   productAttributeValueID,
   title
 ) {
-  console.log(222, MediaID);
-  console.log(223, productAttributeValueID);
-  console.log(224, title);
-  console.log(225, id_product);
   try {
     const query = `
       UPDATE Media
@@ -131,7 +160,7 @@ async function updateMedia(
       .input("MediaID", MediaID)
       .query(query);
   } catch (error) {
-    throw error;
+    throw "Error update media productAttributeValue";
   }
 }
 
@@ -142,7 +171,6 @@ async function processProductSKU(
   array_attribute
 ) {
   try {
-    console.log("array_attribute.length", array_attribute.length);
     if (array_attribute.length === 0) {
       await insertProductSKU(
         transaction,
@@ -237,7 +265,6 @@ async function insertProductSKU(
         id_product_attribute2 ? id_product_attribute2 : null
       )
       .query(query);
-    console.log(result.recordset[0].id_product_sku);
     return result.recordset[0].id_product_sku;
   } catch (error) {
     console.log(error);
@@ -254,7 +281,6 @@ async function insertProductAttributeAndValue(
     const resultMap = {};
     for (let i = 0; i < attributes.length; i++) {
       const attribute = attributes[i];
-      // console.log(attribute.locAttributeName);
       const id_product_attribute = await insertProductAttribute(
         transaction,
         attribute,
@@ -278,7 +304,6 @@ async function insertProductAttributeAndValue(
             id_product_attribute_value
           );
           if (i === 0) {
-            console.log(279, attributeValue.locAttributeValueName);
             await updateMedia(
               transaction,
               id_product,
@@ -293,7 +318,7 @@ async function insertProductAttributeAndValue(
     const resultArray = Object.values(resultMap);
     return resultArray;
   } catch (error) {
-    throw error;
+    throw "Error insert product attribute and value: ";
   }
 }
 
@@ -352,8 +377,16 @@ async function insertProduct(
   slogan,
   description,
   notes,
-  uses,
   madeIn,
+  uses,
+  ingredient,
+  objectsOfUse,
+  preserve,
+  instructionsForUse,
+  height,
+  width,
+  length,
+  weight,
   sellQuantity,
   createdDate,
   idCategory,
@@ -361,10 +394,10 @@ async function insertProduct(
 ) {
   try {
     const query = `
-      INSERT INTO Product(name, slogan, description, notes, uses, madeIn, sellQuantity, createdDate, id_Category, id_User)
+      INSERT INTO Product(name, slogan, description, notes, uses, madeIn, sellQuantity, createdDate, id_Category, id_User, ingredient, objectsOfUse, preserve, instructionsForUse, height, width, length, weight)
       OUTPUT inserted.id AS id_product
       SELECT 
-        @name, @slogan, @description, @notes, @uses, @madeIn, @sellQuantity, @createdDate, Category.id, [User].id
+        @name, @slogan, @description, @notes, @uses, @madeIn, @sellQuantity, @createdDate, Category.id, [User].id, @ingredient, @objectsOfUse, @preserve, @instructionsForUse, @height, @width, @length, @weight
       FROM [User], Category
       WHERE [User].id_account = @idAccount AND Category.id = @idCategory `;
     const result = await transaction
@@ -375,6 +408,14 @@ async function insertProduct(
       .input("notes", notes)
       .input("uses", uses)
       .input("madeIn", madeIn)
+      .input("ingredient", ingredient) //
+      .input("objectsOfUse", objectsOfUse)
+      .input("preserve", preserve)
+      .input("instructionsForUse", instructionsForUse)
+      .input("height", Number(height))
+      .input("width", Number(width))
+      .input("length", Number(length))
+      .input("weight", Number(weight)) //
       .input("sellQuantity", Number(sellQuantity))
       .input("createdDate", createdDate)
       .input("idCategory", idCategory)
@@ -382,6 +423,7 @@ async function insertProduct(
       .query(query);
     return result.recordset[0].id_product;
   } catch (error) {
+    console.log(error);
     throw "Error insert product: ";
   }
 }
@@ -393,16 +435,13 @@ router.post(
   checkRoleAdmin,
   async (request, response) => {
     try {
-      console.log(1, new Date());
       const uniqueFileName = Date.now() + "-" + request.file.originalname;
       const blob = firebase.bucket.file(uniqueFileName);
-      console.log(2, new Date());
       const blobWriter = blob.createWriteStream({
         metadata: {
           contentType: request.file.mimetype,
         },
       });
-      console.log(3, new Date());
       blobWriter.on("error", (err) => {
         response.status(500).json({
           error: err.message,
@@ -411,17 +450,27 @@ router.post(
 
       blobWriter.on("finish", async () => {
         try {
-          console.log(40, new Date());
           const signedUrls = await blob.getSignedUrl({
             action: "read",
             expires: "03-01-2030",
           });
           const publicUrl = signedUrls[0];
-
-          console.log(41, new Date());
+          const query = `
+            INSERT INTO Media(linkString, title, description, createdDate)
+            OUTPUT inserted.id AS id_media
+            SELECT @url AS linkString, @title AS title, @description AS description, @createdDate AS createdDate
+          `;
+          const result = await database
+            .request()
+            .input("url", publicUrl)
+            .input("title", uniqueFileName)
+            .input("description", uniqueFileName)
+            .input("createdDate", new Date())
+            .query(query);
           response.status(201).json({
             Message: "Upload successful!",
             url: publicUrl,
+            mediaID: result.recordset[0].id_media,
           });
         } catch (err) {
           response.status(500).json({
@@ -430,12 +479,9 @@ router.post(
         }
       });
 
-      console.log(5, new Date());
       blobWriter.end(request.file.buffer);
-      console.log(6, new Date());
     } catch (error) {
       console.log(error);
-
       response.status(500).json({
         error: "Internal Server Error",
       });
