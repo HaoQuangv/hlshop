@@ -1,3 +1,4 @@
+const e = require("express");
 const nodemailer = require("nodemailer");
 require("dotenv").config();
 
@@ -31,12 +32,41 @@ function sendOTP(email, otp) {
   });
 }
 
-function sendMessageVerifyOrder(email, orderCode, orderDate, products, totalFund, shippingFee, total, address, payment) {
+function sendMessageVerifyOrder(order) {
+  console.log("order", order);
   const mailOptions = {
     from: '"HLSHOP Management"',
-    to: email,
+    to: order.receiverAddresse.receiverEmail,
     subject: "Order Verification",
-    text: `Dear ${email}\nThank you for choosing HLSHOP for shopping! Here are the details of your order:\n\nOrder Information:\n-Order code: ${orderCode}\nOrder Date: ${orderDate}\n\nProducts:\n${products}\n\nTotal Funds: ${totalFund}\n\nShipping fee: ${shippingFee}\n\nTotal: ${total}\n\nShipping address: ${address}\n\nPayment methods: ${payment}\n\nThank you for choosing HLSHOP. We are honored to serve you!\nRespect\nHLSHOP Management`,
+    text: `Dear ${order.receiverAddresse.receiverEmail}
+    Thank you for choosing HLSHOP for shopping! Here are the details of your order:
+    \nOrder Information:
+    \nOrder code: ${order.orderCode}
+    Order Date: ${new Date().toLocaleString("vi-VN")} 
+    \nProducts:\n${order.dataOrderItem.map((item) => {
+      return `Product name: ${item.productName}
+      -Quantity: ${item.quantity}\n-Price: ${item.price}\n`;
+    })}
+    \nTotal Funds: ${order.dataOrderItem.reduce(
+      (total, item) => total + item.price * item.quantity,
+      0
+    )}
+    Shipping fee: ${order.orderShippingFee.shippingFee}
+    Total: ${
+      order.dataOrderItem.reduce(
+        (total, item) => total + item.price * item.quantity,
+        0
+      ) + order.orderShippingFee.shippingFee
+    }
+    \nPayment methods: ${order.paymentMethod === 0 ? "COD" : "MOMO"} 
+    \nShipping address: ${order.receiverAddresse.addressDetail}, ${
+      order.receiverAddresse.wardName
+    }, ${order.receiverAddresse.districtName}, ${
+      order.receiverAddresse.cityName
+    }
+    \nThank you for choosing HLSHOP. We are honored to serve you!
+    Respect
+    HLSHOP Management`,
   };
 
   transporter.sendMail(mailOptions, (error, info) => {
@@ -56,3 +86,4 @@ function getRandomInt() {
 
 module.exports.sendOTP = sendOTP;
 module.exports.getRandomInt = getRandomInt;
+module.exports.sendMessageVerifyOrder = sendMessageVerifyOrder;

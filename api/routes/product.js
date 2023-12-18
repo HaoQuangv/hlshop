@@ -3,46 +3,7 @@ const express = require("express");
 const router = express.Router();
 const database = require("../../config");
 
-// const redisClient = require("../../middleware/redisClient");
-
 require("dotenv").config();
-
-// const set = (key, value) => {
-//   redisClient.set(key, JSON.stringify(value), "EX", 3600);
-// };
-
-// const get = async (request, response, next) => {
-//   let key = request.route.path + JSON.stringify(request.query) + new Date();
-//   console.log("HLSHOP");
-//   console.log(key);
-//   let headersSent = false; // Cờ để kiểm tra xem header đã được gửi đi chưa
-
-//   redisClient.on("error", (error) => {
-//     console.error("Redis connection error:", error);
-//     if (!headersSent) {
-//       response.status(500).json({ error: "Internal Server Error" });
-//       headersSent = true;
-//     }
-//   });
-
-//   redisClient.get(key, (error, data) => {
-//     if (error) {
-//       if (!headersSent) {
-//         response.status(400).send(error);
-//         headersSent = true;
-//       }
-//     } else {
-//       if (data !== null) {
-//         if (!headersSent) {
-//           response.status(200).send(JSON.parse(data));
-//           headersSent = true;
-//         }
-//       } else {
-//         next();
-//       }
-//     }
-//   });
-// };
 
 async function getProductDetail(idProduct) {
   try {
@@ -54,6 +15,15 @@ async function getProductDetail(idProduct) {
       p.slogan AS productSlogan,
       p.notes AS productNotes,
       p.madeIn AS productMadeIn,
+      p.uses AS productUses,
+      p.ingredient AS productIngredient,
+      p.objectsOfUse AS productObjectsOfUse,
+      p.preserve AS productPreserve, 
+      p.instructionsForUse AS productInstructionsForUse,
+      p.height AS productHeight,
+      p.width AS productWidth,
+      p.length AS productLength,
+      p.weight AS productWeight,  
       ps.id AS productSKUID,
       ps.price AS price,
       ps.priceBefore AS priceBefore,
@@ -64,9 +34,10 @@ async function getProductDetail(idProduct) {
       c.id AS productCategoryID,
       c.name AS productCategoryName,
       c.image AS linkStringCate
-      FROM Product as p
-      JOIN ProductSku as ps ON p.id = ps.idProduct
-      LEFT JOIN Media as m ON p.id = m.id_product
+      FROM Product as p 
+      JOIN ProductSku as ps ON p.id = ps.idProduct 
+      LEFT JOIN Media AS m ON p.id = m.id_product
+      LEFT JOIN ProductAttributeValue AS pav ON ps.idAttributeValue1 = pav.id AND m.productAttributeValueID = pav.id
       LEFT JOIN Category as c ON p.id_Category = c.id
       WHERE p.id = @idProduct
     `;
@@ -87,6 +58,15 @@ async function getProductDetail(idProduct) {
           productSlogan: item.productSlogan,
           productNotes: item.productNotes,
           productMadeIn: item.productMadeIn,
+          productUses: item.productUses,
+          productIngredient: item.productIngredient,
+          productObjectsOfUse: item.productObjectsOfUse,
+          productPreserve: item.productPreserve,
+          productInstructionsForUse: item.productInstructionsForUse,
+          productHeight: item.productHeight,
+          productWidth: item.productWidth,
+          productLength: item.productLength,
+          productWeight: item.productWeight,
           medias: [],
           seller: {
             sellerID: "75B9BA7C-0258-4830-9F08-66B74720229B",
@@ -118,7 +98,9 @@ async function getProductDetail(idProduct) {
 
       // Kiểm tra xem productSKU có tồn tại trong productSKU hay không
       const skuExist = resultMap[productID].productSKU.some(
-        (sku) => sku.productSKUID === productSKUID
+        (sku) =>
+          sku.productSKUID === productSKUID ||
+          sku.linkString === item.linkString
       );
       if (!skuExist) {
         resultMap[productID].productSKU.push({
@@ -703,38 +685,43 @@ router.get("/get-list-same-category", async (request, response) => {
       productID,
       productCategoryID
     );
-
-    const filteredResult = resultArray.filter((item) => {
-      const productNameMatch = item.productName
-        ? item.productName.toLowerCase().includes(search)
-        : false;
-      const productDescriptionMatch = item.productDescription
-        ? item.productDescription.toLowerCase().includes(search)
-        : false;
-      const productSloganMatch = item.productSlogan
-        ? item.productSlogan.toLowerCase().includes(search)
-        : false;
-      const productNotesMatch = item.productNotes
-        ? item.productNotes.toLowerCase().includes(search)
-        : false;
-      const productMadeInMatch = item.productMadeIn
-        ? item.productMadeIn.toLowerCase().includes(search)
-        : false;
-      return (
-        productNameMatch ||
-        productDescriptionMatch ||
-        productSloganMatch ||
-        productNotesMatch ||
-        productMadeInMatch
-      );
+    const filteredResult1 = resultArray.filter((item) => {
+      if (item.productID !== productID) {
+        console.log(item.productID);
+      }
+      return item.productID !== productID;
     });
+    // const filteredResult = filteredResult1.filter((item) => {
+    //   const productNameMatch = item.productName
+    //     ? item.productName.toLowerCase().includes(search)
+    //     : false;
+    //   const productDescriptionMatch = item.productDescription
+    //     ? item.productDescription.toLowerCase().includes(search)
+    //     : false;
+    //   const productSloganMatch = item.productSlogan
+    //     ? item.productSlogan.toLowerCase().includes(search)
+    //     : false;
+    //   const productNotesMatch = item.productNotes
+    //     ? item.productNotes.toLowerCase().includes(search)
+    //     : false;
+    //   const productMadeInMatch = item.productMadeIn
+    //     ? item.productMadeIn.toLowerCase().includes(search)
+    //     : false;
+    //   return (
+    //     productNameMatch ||
+    //     productDescriptionMatch ||
+    //     productSloganMatch ||
+    //     productNotesMatch ||
+    //     productMadeInMatch
+    //   );
+    // });
 
-    // Phân trang
-    const paginatedResult = filteredResult.slice(offset, offset + limit);
+    // // Phân trang
+    // const paginatedResult = filteredResult.slice(offset, offset + limit);
 
     response
       .status(200)
-      .json({ result: paginatedResult, total: filteredResult.length });
+      .json({ result: filteredResult1, total: filteredResult1.length });
   } catch (error) {
     console.error(error);
     response.status(500).json({ errorCode: "Internal Server Error" });

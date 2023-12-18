@@ -6,6 +6,7 @@ const { token, getInfoService } = require("../../utils/shipping");
 const { createMomoPayment } = require("../../utils/momo_payment");
 const sql = require("mssql");
 const database = require("../../config");
+const mail_util = require("../../utils/mail");
 
 const checkAuth = require("../../middleware/check_auth");
 const checkRole = require("../../middleware/check_role_user");
@@ -47,7 +48,12 @@ router.post("/create", checkAuth, checkRole, async (request, response) => {
           totalItem += n;
         }
 
-        var fee = await getFeeOrder(toDistrictID, toWardCode, totalItem);
+        var fee = await getFeeOrder(
+          toDistrictID,
+          toWardCode,
+          totalItem,
+          cartList
+        );
         const totalOrder = totalItem + Number(fee);
         feeJson = { shippingFee: fee };
         feeText = JSON.stringify(feeJson);
@@ -59,7 +65,6 @@ router.post("/create", checkAuth, checkRole, async (request, response) => {
           totalOrder
         );
         await createPaymentOrder(orderID, totalOrder, DateNow, transaction);
-
         await createOrderTracking(orderID, transaction, DateNow);
 
         await transaction.commit();
@@ -70,6 +75,13 @@ router.post("/create", checkAuth, checkRole, async (request, response) => {
             orderIDs: orderID,
           },
         });
+
+        console.log("Create Order Success");
+        const orderItem = await getOrderDetailByID(orderID);
+        console.log("order", orderItem);
+        if (orderItem.receiverAddresse.receiverEmail !== null) {
+          mail_util.sendMessageVerifyOrder(orderItem);
+        }
       })
       .catch(async (err) => {
         await transaction.rollback();
@@ -94,9 +106,31 @@ router.post("/create", checkAuth, checkRole, async (request, response) => {
   }
 });
 
-async function getFeeOrder(toDistrictID, toWardCode, insuranceValue) {
+async function getFeeOrder(toDistrictID, toWardCode, insuranceValue, carts) {
   try {
     const serviceID = await getInfoService(toDistrictID);
+    const resultMap = {};
+    for (const cart of carts) {
+      const itemCartSize = await getSizeItem(cart.cartID);
+      resultMap[cart.cartID] = itemCartSize;
+    }
+    const resultArray = Object.values(resultMap);
+    const totalWeight = resultArray.reduce(
+      (total, item) => total + item.weight * item.quantity,
+      0
+    );
+    const totalHeight = resultArray.reduce(
+      (total, item) => total + item.height * item.quantity,
+      0
+    );
+    const totalLength = resultArray.reduce(
+      (total, item) => total + item.length * item.quantity,
+      0
+    );
+    const totalWidth = resultArray.reduce(
+      (total, item) => total + item.width * item.quantity,
+      0
+    );
     const apiUrl =
       "https://online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/fee";
     const requestBody = {
@@ -106,10 +140,10 @@ async function getFeeOrder(toDistrictID, toWardCode, insuranceValue) {
       from_district_id: 3695,
       to_district_id: Number(toDistrictID),
       to_ward_code: toWardCode.toString(),
-      height: 15,
-      length: 15,
-      weight: 400,
-      width: 15,
+      height: Number(totalHeight),
+      length: Number(totalLength),
+      weight: Number(totalWeight),
+      width: Number(totalWidth),
     };
     const headers = {
       token: token,
@@ -123,6 +157,44 @@ async function getFeeOrder(toDistrictID, toWardCode, insuranceValue) {
   }
 }
 
+async function getSizeItem(cartID) {
+  try {
+    const query = `
+    SELECT
+    c.id AS cartItemID,
+    c.quantity AS QuantityCartItem,
+    ps.idProduct AS ProductID,
+    p.height AS ProductHeight,
+    p.length AS ProductLength,
+    p.width AS ProductWidth,
+    p.weight AS ProductWeight
+    FROM Cart AS c
+    JOIN ProductSku AS ps ON c.idProductSku = ps.id
+    JOIN Product AS p ON ps.idProduct = p.id
+    WHERE c.id = @cartID;
+    `;
+    const result = await database
+      .request()
+      .input("cartID", cartID)
+      .query(query);
+    if (result.recordset.length === 0) {
+      throw "Not Exist cartID";
+    } else {
+      return {
+        cartItemID: result.recordset[0].cartItemID,
+        quantity: result.recordset[0].QuantityCartItem,
+        productID: result.recordset[0].ProductID,
+        height: result.recordset[0].ProductHeight,
+        length: result.recordset[0].ProductLength,
+        width: result.recordset[0].ProductWidth,
+        weight: result.recordset[0].ProductWeight,
+      };
+    }
+  } catch (error) {
+    throw error;
+  }
+}
+
 async function getAddressReceive(receiverAddressID, idAccount) {
   try {
     const query = `
@@ -131,6 +203,7 @@ async function getAddressReceive(receiverAddressID, idAccount) {
     ar.receiverContactName,
     ar.receiverPhone,
     ar.receiverEmail,
+    ar.receiverEmailID,
     ar.addressLabel,
     ar.cityName,
     ar.districtName,
@@ -478,8 +551,8 @@ router.get("/get-detail", checkAuth, checkRole, async (request, response) => {
     const { orderID } = request.query;
 
     await checkOrderExist(orderID, request.userData.uuid);
-    const orderItemList = await getOrderDetailByID(orderID);
-    response.status(200).json(orderItemList);
+    const orderItem = await getOrderDetailByID(orderID);
+    response.status(200).json(orderItem);
   } catch (error) {
     if (error.code === "EREQUEST") {
       return response.status(500).json({
