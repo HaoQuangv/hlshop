@@ -304,6 +304,7 @@ async function insertProductAttributeAndValue(
             id_product_attribute_value
           );
           if (i === 0) {
+            console.log("i = 0");
             await updateMedia(
               transaction,
               id_product,

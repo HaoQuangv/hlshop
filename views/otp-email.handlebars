@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OTP Confirmation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+
+        #container {
+            max-width: 600px;
+            margin: 20px auto;
+        }
+
+        #otp-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+
+        #otp-code {
+            font-size: 40px;
+            font-weight: bold;
+            padding: 20px;
+            color: #333;
+        }
+
+        #thank-you {
+            margin-top: 20px;
+            color: #666;
+        }
+         #logo-container {
+            color: #fff;
+            display: flex;
+            justify-content: center;
+        }
+
+        #logo {
+            max-width: 90px;
+            width: 100%;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="container">
+        <div id="logo-container">
+        <img id="logo" src="https://storage.googleapis.com/hlsop-393ef.appspot.com/1703178539320-app_logo.png?GoogleAccessId=firebase-adminsdk-5uq3u%40hlsop-393ef.iam.gserviceaccount.com&Expires=1898528400&Signature=iHtc8jBHUG8Oeb%2BelXbHqVzM2oPZmcuEa0xR%2Fq86HfCu4T%2BmIZ9E9tKawsOPLW3FOcU8aoxdIo4JTz%2B3DxAQtTL1YqA5N3UfC%2FLBZwZXZsln%2FS3LTXRcH3r1FePJccJfOE7hxqFD8Bz6c%2FFYMYFrbku2Ncpi1fnmkHfOEe2d%2Bqkv4cw8taVtTx7A%2F00XKzkvIG2HgAh%2FkXDagD%2BQKa0SEsUPb0L%2Bng%2FfNQidf80IB4lAN1rnwaiTBVsj1zf9uDdwApS9PoD4u2TULfgeVVDfxVVRaxaPIxCV0pnW4Q1ghgBU1e8QgeELft77SozIVjmlznQKfUwuQo5SAv2DUx65Xw%3D%3D" alt="Your Logo"> <!-- Đặt đường link đến logo của bạn ở đây -->
+        </div>
+        <h3>OTP Confirmation</h3>
+
+        <p>Dear {{email}},</p>
+        
+        <div id="otp-container">
+            <p>Your OTP code is:</p>
+            <p id="otp-code">{{otp}}</p> 
+        </div>
+
+        <p id="thank-you">Thank you for using our services. We appreciate your trust in us.</p>
+
+        <p>If you have any questions or concerns, please don't hesitate to contact us.</p>
+
+        <p>If you don't require this code, you can safely ignore this email. It's possible that someone else entered
+            your email address by mistake.</p>
+        <p>Thank you,</p>
+        <p><strong>HLSHOP Management</strong></p>
+        <p>&copy; 2023 HLSHOP. All rights reserved.</p>
+    </div>
+</body>
+
+</html>

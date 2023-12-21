@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Order Confirmation</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+
+        .container {
+            width: 80%;
+            margin: auto;
+            overflow: hidden;
+        }
+
+        header {
+            background: #ffffff;
+            color: #ffffff;
+            padding-top: 30px;
+            min-height: 70px;
+            border-bottom: #19AAEB 4px solid;
+        }
+
+        header a {
+            color: #19AAEB;
+            text-decoration: none;
+            text-transform: uppercase;
+            font-size: 16px;
+        }
+
+        header ul {
+            padding: 0;
+            margin: 0;
+            list-style: none;
+            overflow: hidden;
+        }
+
+        header #logo {
+            float: left;
+            display: inline;
+        }
+
+        header #logo img {
+            height: 70px;
+            width: auto;
+            padding-bottom: 10px;
+        }
+
+        header nav {
+            float: right;
+            display: inline;
+        }
+
+        header .main-nav ul {
+            list-style: none;
+            overflow: hidden;
+        }
+
+        header .main-nav a {
+            padding: 0 10px 0 10px;
+            float: left;
+            display: inline;
+            font-size: 13px;
+            text-transform: uppercase;
+            font-weight: 600;
+            line-height: 70px;
+        }
+
+        header .main-nav #search {
+            padding: 0;
+            margin: 0;
+            float: right;
+            display: inline;
+        }
+
+        header .main-nav input[type=text] {
+            padding: 5px;
+            margin-top: 25px;
+            font-size: 12px;
+            font-weight: 500;
+            border: none;
+        }
+
+        header .main-nav #login {
+            padding: 0;
+            margin: 0;
+            float: right;
+            display: inline;
+        }
+
+        header .main-nav #login input[type=text],
+        input[type=password] {
+            padding: 5px;
+            margin-top: 15px;
+            font-size: 12px;
+            font-weight: 500;
+            border: none;
+        }
+
+        .main {
+            padding: 0 10px;
+        }
+
+        .main h1 {
+            color: #333;
+        }
+
+        .main p {
+            font-size: 16px;
+            line-height: 25px;
+            color: #666;
+        }
+
+        .main .name {
+            color: #19AAEB;
+            font-weight: bold;
+        }
+
+        .order-details {
+            background: #ffffff;
+            margin: 5px 0;
+            padding: 5px;
+            border: #19AAEB 1px solid;
+        }
+
+        .order-details table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .order-details th,
+        .order-details td {
+            text-align: left;
+            max-width: 100px; 
+            max-height: 200px;
+            overflow: hidden; /* Ẩn phần dư thừa nếu nội dung quá dài */
+            text-overflow: ellipsis; /* Sau khi ẩn thì thêm dấu ba chấm ở cuối */
+            border: #19AAEB 1px solid;
+            {{!-- padding: 3px; --}}
+        }
+
+        .order-details th {
+            background-color: #19AAEB;
+            color: #ffffff;
+        }
+
+        .order-details img {
+            max-width: 60px;
+            margin-right: 10px;
+        }
+
+        .order-summary {
+            float: left;
+            width: 40%;
+        }
+
+        .order-summary table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .order-summary th,
+        .order-summary td { 
+            border: #19AAEB 1px solid;
+            padding: 8px;
+            text-align: left;
+        }
+
+        .order-summary th {
+            background-color: #19AAEB;
+            color: #ffffff;
+        }
+
+        .total {
+            font-size: 20px;
+            font-weight: bold;
+            color: #19AAEB;
+        }
+
+        .info-customer {
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        padding: 20px;
+        margin: 20px 0;
+        background-color: #fff;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .info-customer p {
+            margin: 10px 0;
+        }
+
+        .info-customer strong {
+            font-weight: bold;
+        }
+
+        .info-customer address {
+            font-style: normal;
+            margin: 10px 0;
+        }
+
+        footer {
+            padding: 20px 0;
+            background: #19AAEB;
+            color: #ffffff;
+            text-align: center;
+            font-size: 14px;
+        }
+    </style>
+
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div id="logo">
+                <img src="https://storage.googleapis.com/hlsop-393ef.appspot.com/1703178539320-app_logo.png?GoogleAccessId=firebase-adminsdk-5uq3u%40hlsop-393ef.iam.gserviceaccount.com&Expires=1898528400&Signature=iHtc8jBHUG8Oeb%2BelXbHqVzM2oPZmcuEa0xR%2Fq86HfCu4T%2BmIZ9E9tKawsOPLW3FOcU8aoxdIo4JTz%2B3DxAQtTL1YqA5N3UfC%2FLBZwZXZsln%2FS3LTXRcH3r1FePJccJfOE7hxqFD8Bz6c%2FFYMYFrbku2Ncpi1fnmkHfOEe2d%2Bqkv4cw8taVtTx7A%2F00XKzkvIG2HgAh%2FkXDagD%2BQKa0SEsUPb0L%2Bng%2FfNQidf80IB4lAN1rnwaiTBVsj1zf9uDdwApS9PoD4u2TULfgeVVDfxVVRaxaPIxCV0pnW4Q1ghgBU1e8QgeELft77SozIVjmlznQKfUwuQo5SAv2DUx65Xw%3D%3D" alt="Logo">
+            </div>
+        </div>
+    </header>
+
+    <div class="container main">
+        <p>Dear <span class="name">{{receiverAddresse.receiverContactName}}</span>,</p>
+        <p>Thank you for your order. Your order details are as follows:</p>
+
+        <div>
+            <p><strong>Order Number:</strong> {{orderCode}}</p>
+            <p><strong>Created Order Date:</strong> {{dateCreateOrder}}</p>
+            <p><strong>{{statusdateOrderStatus}}</strong> {{dateOrderStatus}}</p>
+        </div>
+        <div class="order-details">
+            <table>
+                <tr>
+                    <th>Product</th>
+                    <th>Product Name</th>
+                    <th>Quantity</th>
+                    <th>Price</th>
+                </tr>
+                {{#each dataOrderItem}}
+                <tr>
+                    <td>
+                        {{#medias}}
+                        <img src="{{linkString}}" alt="">
+                        {{/medias}}
+                        {{#attribute}}
+                        <p>{{locAttributeName}}: {{locAttributeValueName}}</p>
+                        {{/attribute}}
+                    </td>
+                    <td>{{productName}}</td>
+                    <td>{{quantity}}</td>
+                    <td>{{price}}</td>
+                </tr>
+                {{/each}}
+            </table>
+        </div>
+
+        <div class="order-summary">
+            <h2>Order Summary</h2> 
+            <table>
+                <tr>
+                    <th>Subtotal</th>
+                    <td>{{Subtotal}}</td>
+                </tr>
+                <tr>
+                    <th>Shipping Fee</th>
+                    <td>{{orderShippingFee.shippingFee}}</td>
+                </tr>
+                <tr>
+                    <th>Total Order</th>
+                    <td class="total">{{TotalOrder}}</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    <div class="info-customer">
+        <p><strong>Thông tin khách hàng:</strong></p>
+        <p><strong>Tên khách hàng:</strong> {{receiverAddresse.receiverContactName}}</p>
+        <p><strong>Số điện thoại:</strong> {{receiverAddresse.receiverPhone}}</p>
+        <p><strong>Email:</strong> {{receiverAddresse.receiverEmail}}</p>
+        <address>
+            <strong>Địa chỉ:</strong> {{receiverAddresse.addressDetail}}, {{receiverAddresse.wardName}}, {{receiverAddresse.districtName}}, {{receiverAddresse.cityName}}
+        </address>
+        <p><strong>Phương thức thanh toán:</strong> {{paymentMethod}}</p>
+    </div>
+
+    <div>
+        <p>Thank you,</p>
+        <p><strong>HLSHOP Management</strong></p>
+    </div>
+
+    <footer>
+        <p>&copy; 2023 HLSHOP. All rights reserved.</p>
+    </footer>
+</body>
+
+</html>

@@ -123,6 +123,7 @@ router.post(
   async (request, response) => {
     let transaction = new sql.Transaction(database);
     try {
+      console.log("request.query", request.query);
       const orderID = request.query.orderID;
       const orderStatus = Number(request.query.orderStatus);
       const now = new Date();
@@ -228,12 +229,19 @@ router.post(
           response.status(200).json({
             message: "Update order status success",
           });
+          console.log("Send Email to Customer", orderID);
+          const orderItem = await getOrderDetailByID(orderID);
+          console.log("order", orderItem);
+          if (orderItem.receiverAddresse.receiverEmail !== null) {
+            mail_util.sendMessageVerifyOrder(orderItem);
+          }
         })
         .catch(async (err) => {
           await transaction.rollback();
           throw err;
         });
     } catch (error) {
+      console.log(error);
       if (error.code === "EREQUEST") {
         return response.status(500).json({
           errorCode: "EREQUEST",
@@ -379,13 +387,22 @@ async function getOrderDetailByID(orderID) {
     o.orderCode,
     o.paymentMethod,
     o.orderStatus,
+    o.createdDate AS dateCreateOrder,
     o.orderShippingFee,
     po.finish_pay AS finishPay,
-    oi.orderItemJsonToString AS dataOrderItem
+    oi.orderItemJsonToString AS dataOrderItem,
+    po.amount AS totalOrder,
+    ot.actionDate AS dateOrderStatus
     FROM [Order] AS o
     JOIN Order_item AS oi ON o.id = oi.orderId
 		LEFT JOIN Payment_order AS po ON po.orderId = o.id
-    WHERE o.id = @orderID;
+    LEFT JOIN OrderTracking AS ot ON o.id = ot.orderId
+    WHERE o.id = @orderID AND ot.orderStatus = (
+                              SELECT MAX(ot_sub.orderStatus)
+                              FROM OrderTracking AS ot_sub
+                              WHERE ot_sub.orderId = o.id
+                              )
+    ORDER BY COALESCE(ot.actionDate, o.createdDate) DESC
     `;
     const result = await database
       .request()
@@ -414,7 +431,13 @@ async function getOrderDetailByID(orderID) {
           orderID,
           dataOrderItem: [JSON.parse(dataOrderItem)],
           orderShippingFee: parsedOrderShippingFee,
-          ...rest,
+          orderCode: item.orderCode,
+          paymentMethod: item.paymentMethod,
+          orderStatus: item.orderStatus,
+          finishPay: item.finishPay,
+          totalOrder: item.totalOrder,
+          dateCreateOrder: item.dateCreateOrder,
+          dateOrderStatus: item.dateOrderStatus,
         };
       }
     });
