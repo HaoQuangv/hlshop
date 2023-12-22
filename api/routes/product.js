@@ -686,9 +686,6 @@ router.get("/get-list-same-category", async (request, response) => {
       productCategoryID
     );
     const filteredResult1 = resultArray.filter((item) => {
-      if (item.productID !== productID) {
-        console.log(item.productID);
-      }
       return item.productID !== productID;
     });
     // const filteredResult = filteredResult1.filter((item) => {

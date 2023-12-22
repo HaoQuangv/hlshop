@@ -54,12 +54,32 @@ function sendOTP(email, otp) {
 }
 
 function sendMessageVerifyOrder(order) {
-  console.log("sendMessageVerifyOrder: \n", order);
-  const totalPrice = order.dataOrderItem.reduce(
-    (total, item) => total + item.price * item.quantity,
-    0
+  const formatToVND = (amount) => {
+    return amount.toLocaleString("vi-VN", {
+      style: "currency",
+      currency: "VND",
+    });
+  };
+  let shippingFee = formatToVND(order.orderShippingFee.shippingFee);
+
+  const totalPrice = formatToVND(
+    order.dataOrderItem.reduce(
+      (total, item) => total + item.price * item.quantity,
+      0
+    )
   );
 
+  console.log("TotalPrice: " + totalPrice);
+  console.log("TotalOrder: " + order.totalOrder);
+  let TotalOrder = formatToVND(order.totalOrder);
+  // Mảng dữ liệu
+  order.dataOrderItem = order.dataOrderItem.map((item) => {
+    // Thay đổi giá thành VND
+    item.price = formatToVND(item.price);
+    item.priceBefore = formatToVND(item.priceBefore);
+    return item;
+  });
+  console.log("order.dataOrderItem: " + order.dataOrderItem);
   const statusToString = (status) => {
     switch (status) {
       case 0:
@@ -135,22 +155,19 @@ function sendMessageVerifyOrder(order) {
     template: "order-email",
     context: {
       receiverAddresse: order.receiverAddresse,
-      totalPrice: totalPrice,
       dataOrderItem: order.dataOrderItem,
-      orderShippingFee: order.orderShippingFee,
       orderCode: order.orderCode,
       paymentMethod: paymentMethodToString(order.paymentMethod),
-      orderStatus: order.orderStatus,
       statusToString: statusToString(order.orderStatus),
       dateCreateOrder: processDate(order.dateCreateOrder),
       statusdateOrderStatus: statusdateOrderStatus(order.orderStatus),
       dateOrderStatus:
         order.orderStatus === 0 ? "" : processDate(order.dateOrderStatus),
       Subtotal: totalPrice,
-      TotalOrder: order.totalOrder,
+      orderShippingFee: shippingFee,
+      TotalOrder: TotalOrder,
     },
   };
-
   transporter.sendMail(mailOptions, (error, info) => {
     if (error) {
       console.log("Lỗi gửi email:", error);

@@ -120,18 +120,8 @@ async function getFeeOrder(toDistrictID, toWardCode, insuranceValue, carts) {
       (total, item) => total + item.weight * item.quantity,
       0
     );
-    const totalHeight = resultArray.reduce(
-      (total, item) => total + item.height * item.quantity,
-      0
-    );
-    const totalLength = resultArray.reduce(
-      (total, item) => total + item.length * item.quantity,
-      0
-    );
-    const totalWidth = resultArray.reduce(
-      (total, item) => total + item.width * item.quantity,
-      0
-    );
+    const [totalHeight, totalLength, totalWidth] =
+      processArraySize(resultArray);
     const apiUrl =
       "https://online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/fee";
     const requestBody = {
@@ -156,6 +146,27 @@ async function getFeeOrder(toDistrictID, toWardCode, insuranceValue, carts) {
   } catch (error) {
     throw error;
   }
+}
+function processArraySize(array) {
+  var x = 0;
+  var V = array.reduce(
+    (total, item) =>
+      total + item.height * item.length * item.width * item.quantity,
+    0
+  );
+  console.log("V order: ", V);
+  array.forEach((item) => {
+    x = Math.max(x, item.height);
+    x = Math.max(x, item.length);
+    x = Math.max(x, item.width);
+  });
+
+  var S = V / x;
+  height = x;
+  length = Math.round(Math.sqrt(S));
+  width = Math.round(S / length);
+
+  return [height, length, width];
 }
 
 async function getSizeItem(cartID) {

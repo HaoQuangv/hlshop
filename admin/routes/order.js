@@ -4,6 +4,8 @@ require("dotenv").config();
 const database = require("../../config");
 const sql = require("mssql");
 
+const mail_util = require("../../utils/mail");
+
 const checkAuth = require("../../middleware/check_auth");
 const checkRoleAdmin = require("../../middleware/check_role_admin");
 
