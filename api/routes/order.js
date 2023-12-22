@@ -772,26 +772,12 @@ async function countOrders(idAccount) {
 }
 
 router.get("/payment-success", async (req, res) => {
-  // Lấy dữ liệu từ request
-  const {
-    partnerCode,
-    orderId,
-    requestId,
-    amount,
-    orderInfo,
-    orderType,
-    transId,
-    resultCode,
-    message,
-    payType,
-    responseTime,
-    extraData,
-    signature,
-    paymentOption,
-  } = req.query;
+  const { orderId, requestId, amount, resultCode, message, transId } =
+    req.query;
+  console.log("payment-success", req.query);
   try {
     const paymentOrder = await getPaymentOrderbyOrderID(orderId);
-    console.log(paymentOrder);
+
     if (
       paymentOrder.requestId === requestId &&
       paymentOrder.amount === Number(amount) &&
@@ -803,7 +789,7 @@ router.get("/payment-success", async (req, res) => {
         currency: "VND",
       });
       if (paymentOrder.finishPay === false) {
-        await updatePaymentOrderFinishPay(orderId);
+        await updatePaymentOrderFinishPay(orderId, transId);
         res.render("payment-success", {
           orderId: paymentOrder.orderCode,
           amount: total,
@@ -832,19 +818,23 @@ router.get("/payment-success", async (req, res) => {
   }
 });
 
-async function updatePaymentOrderFinishPay(orderID) {
+async function updatePaymentOrderFinishPay(orderID, transId) {
   try {
+    console.log("updatePaymentOrderFinishPay");
     const query = `
         UPDATE Payment_order
-        SET finish_pay = @finishPay
+        SET finish_pay = @finishPay,
+        transId = @transId
         WHERE orderId = @orderID;
     `;
     await database
       .request()
       .input("orderID", orderID)
+      .input("transId", transId)
       .input("finishPay", true)
       .query(query);
   } catch (error) {
+    console.log("Error in updatePaymentOrderFinishPay", error);
     throw "Error in payment confirm";
   }
 }
