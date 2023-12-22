@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Confirmation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+
+        #container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        #logo {
+            max-width: 150px;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        #order-info {
+            margin-top: 20px;
+        }
+
+        #thank-you {
+            margin-top: 20px;
+            color: #666;
+        }
+
+        .info-customer {
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        padding: 20px;
+        margin: 20px 0;
+        background-color: #fff;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .info-customer p {
+            margin: 10px 0;
+        }
+
+        .info-customer strong {
+            font-weight: bold;
+        }
+
+        .info-customer address {
+            font-style: normal;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="container">
+        <img id="logo" src="https://storage.googleapis.com/hlsop-393ef.appspot.com/1703178539320-app_logo.png?GoogleAccessId=firebase-adminsdk-5uq3u%40hlsop-393ef.iam.gserviceaccount.com&Expires=1898528400&Signature=iHtc8jBHUG8Oeb%2BelXbHqVzM2oPZmcuEa0xR%2Fq86HfCu4T%2BmIZ9E9tKawsOPLW3FOcU8aoxdIo4JTz%2B3DxAQtTL1YqA5N3UfC%2FLBZwZXZsln%2FS3LTXRcH3r1FePJccJfOE7hxqFD8Bz6c%2FFYMYFrbku2Ncpi1fnmkHfOEe2d%2Bqkv4cw8taVtTx7A%2F00XKzkvIG2HgAh%2FkXDagD%2BQKa0SEsUPb0L%2Bng%2FfNQidf80IB4lAN1rnwaiTBVsj1zf9uDdwApS9PoD4u2TULfgeVVDfxVVRaxaPIxCV0pnW4Q1ghgBU1e8QgeELft77SozIVjmlznQKfUwuQo5SAv2DUx65Xw%3D%3D" alt="Your Logo"> 
+
+        <h2>Thank You for Your Payment</h2>
+
+        <p>Dear {{receiverAddresse.receiverContactName}},</p>
+
+        <p>We're thrilled to let you know that your order has been received and is being processed. Please check your
+            email for further details about your order.</p>
+
+        <div id="order-info">
+            <!-- Include relevant order information here -->
+            <p><strong>Order ID:</strong> {{orderCode}}</p>
+            <p><strong>Order Date:</strong> {{dateCreateOrder}}</p>
+            <p><strong>Order Total:</strong> {{TotalOrder}}</p>
+        </div>
+
+        <p id="thank-you">Thank you for choosing our services. We appreciate your business!</p>
+
+        <p>If you have any questions or concerns, please don't hesitate to contact us.</p>
+
+        <div class="info-customer">
+            <p><strong>Thông tin khách hàng:</strong></p>
+            <p><strong>Tên khách hàng:</strong> {{receiverAddresse.receiverContactName}}</p>
+            <p><strong>Số điện thoại:</strong> {{receiverAddresse.receiverPhone}}</p>
+            <p><strong>Email:</strong> {{receiverAddresse.receiverEmail}}</p>
+            <address>
+                <strong>Địa chỉ:</strong> {{receiverAddresse.addressDetail}}, {{receiverAddresse.wardName}},
+                {{receiverAddresse.districtName}}, {{receiverAddresse.cityName}}
+            </address>
+            <p><strong>Phương thức thanh toán:</strong> {{paymentMethod}}</p>
+        </div>
+
+        <div>
+            <p>Thank you,</p>
+            <p><strong>HLSHOP Management</strong></p>
+        </div>
+        
+        <footer>
+            <p>&copy; 2023 HLSHOP. All rights reserved.</p>
+        </footer>
+    </div>
+</body>
+
+</html>

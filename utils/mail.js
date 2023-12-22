@@ -68,9 +68,6 @@ function sendMessageVerifyOrder(order) {
       0
     )
   );
-
-  console.log("TotalPrice: " + totalPrice);
-  console.log("TotalOrder: " + order.totalOrder);
   let TotalOrder = formatToVND(order.totalOrder);
   // Mảng dữ liệu
   order.dataOrderItem = order.dataOrderItem.map((item) => {
@@ -179,6 +176,130 @@ function sendMessageVerifyOrder(order) {
   });
 }
 
+function sendMessageThanksPayment(order) {
+  const formatToVND = (amount) => {
+    return amount.toLocaleString("vi-VN", {
+      style: "currency",
+      currency: "VND",
+    });
+  };
+  let TotalOrder = formatToVND(order.totalOrder);
+  // Mảng dữ liệu
+  order.dataOrderItem = order.dataOrderItem.map((item) => {
+    // Thay đổi giá thành VND
+    item.price = formatToVND(item.price);
+    item.priceBefore = formatToVND(item.priceBefore);
+    return item;
+  });
+
+  const paymentMethodToString = (paymentMethod) => {
+    switch (paymentMethod) {
+      case 0:
+        return "COD - Thanh toán khi nhận hàng";
+      case 1:
+        return "Thanh toán trực tuyến - Momo";
+      default:
+        return "Đang xử lý";
+    }
+  };
+
+  const processDate = (date) => {
+    let dateProcess = new Date(date);
+    return (
+      dateProcess.getDate() +
+      "/" +
+      (dateProcess.getMonth() + 1) +
+      "/" +
+      dateProcess.getFullYear()
+    );
+  };
+
+  var mailOptions = {
+    from: '"HLSHOP Management" <hlshopmanagement280@gmail.com>',
+    to: order.receiverAddresse.receiverEmail,
+    subject: "Thanks for your payment",
+    template: "thanks-payment",
+    context: {
+      receiverAddresse: order.receiverAddresse,
+      orderCode: order.orderCode,
+      paymentMethod: paymentMethodToString(order.paymentMethod),
+      dateCreateOrder: processDate(order.dateCreateOrder),
+      TotalOrder: TotalOrder,
+    },
+  };
+  transporter.sendMail(mailOptions, (error, info) => {
+    if (error) {
+      console.log("Lỗi gửi email:", error);
+    } else {
+      console.log(
+        "Gửi email thành công đến " + order.receiverAddresse.receiverEmail
+      );
+    }
+  });
+}
+
+function sendMessagePaymentRefund(order) {
+  const formatToVND = (amount) => {
+    return amount.toLocaleString("vi-VN", {
+      style: "currency",
+      currency: "VND",
+    });
+  };
+  let TotalOrder = formatToVND(order.totalOrder);
+  // Mảng dữ liệu
+  order.dataOrderItem = order.dataOrderItem.map((item) => {
+    // Thay đổi giá thành VND
+    item.price = formatToVND(item.price);
+    item.priceBefore = formatToVND(item.priceBefore);
+    return item;
+  });
+
+  const paymentMethodToString = (paymentMethod) => {
+    switch (paymentMethod) {
+      case 0:
+        return "COD - Thanh toán khi nhận hàng";
+      case 1:
+        return "Thanh toán trực tuyến - Momo";
+      default:
+        return "Đang xử lý";
+    }
+  };
+
+  const processDate = (date) => {
+    let dateProcess = new Date(date);
+    return (
+      dateProcess.getDate() +
+      "/" +
+      (dateProcess.getMonth() + 1) +
+      "/" +
+      dateProcess.getFullYear()
+    );
+  };
+
+  var mailOptions = {
+    from: '"HLSHOP Management" <hlshopmanagement280@gmail.com>',
+    to: order.receiverAddresse.receiverEmail,
+    subject: "Payment Refund",
+    template: "payment-refund",
+    context: {
+      receiverAddresse: order.receiverAddresse,
+      orderCode: order.orderCode,
+      paymentMethod: paymentMethodToString(order.paymentMethod),
+      dateCreateOrder: processDate(order.dateCreateOrder),
+      TotalOrder: TotalOrder,
+    },
+  };
+  transporter.sendMail(mailOptions, (error, info) => {
+    if (error) {
+      console.log("Lỗi gửi email:", error);
+    } else {
+      console.log(
+        "Gửi email thành công đến " + order.receiverAddresse.receiverEmail
+      );
+    }
+  });
+}
+
 function getRandomInt() {
   const ran = Math.floor(Math.random() * 8999 + 1000);
   console.log("OTP: " + ran);
@@ -188,3 +309,5 @@ function getRandomInt() {
 module.exports.sendOTP = sendOTP;
 module.exports.getRandomInt = getRandomInt;
 module.exports.sendMessageVerifyOrder = sendMessageVerifyOrder;
+module.exports.sendMessageThanksPayment = sendMessageThanksPayment;
+module.exports.sendMessagePaymentRefund = sendMessagePaymentRefund;

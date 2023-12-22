@@ -791,25 +791,40 @@ router.get("/payment-success", async (req, res) => {
   } = req.query;
   try {
     const paymentOrder = await getPaymentOrderbyOrderID(orderId);
+    console.log(paymentOrder);
     if (
-      paymentOrder.finishPay === true ||
-      paymentOrder.amount.toString() !== amount ||
-      message !== "Successful." ||
-      resultCode !== "0" ||
-      paymentOrder.requestId !== requestId
+      paymentOrder.requestId === requestId &&
+      paymentOrder.amount === Number(amount) &&
+      message === "Successful." &&
+      resultCode === "0"
     ) {
-      await updatePaymentOrderFinishPay(orderId);
-      res.render("payment-success", {
-        orderId: orderId,
-        amount: amount,
+      const total = Number(amount).toLocaleString("vi-VN", {
+        style: "currency",
+        currency: "VND",
       });
-      return;
+      if (paymentOrder.finishPay === false) {
+        await updatePaymentOrderFinishPay(orderId);
+        res.render("payment-success", {
+          orderId: paymentOrder.orderCode,
+          amount: total,
+        });
+        console.log("updatePaymentOrderFinishPay-success");
+        console.log("Send Email to Customer", orderId);
+        const orderItem = await getOrderDetailByID(orderId);
+        console.log("order", orderItem);
+        if (orderItem.receiverAddresse.receiverEmail !== null) {
+          mail_util.sendMessageThanksPayment(orderItem);
+        }
+        return;
+      } else {
+        res.render("payment-success", {
+          orderId: paymentOrder.orderCode,
+          amount: total,
+        });
+      }
+    } else {
+      throw "Error in payment confirm";
     }
-    // await updatePaymentOrderFinishPay(orderId);
-    res.render("payment-success", {
-      orderId: orderId,
-      amount: amount,
-    });
   } catch (error) {
     res.status(500).render("payment-error", {
       message: error,
@@ -839,11 +854,13 @@ async function getPaymentOrderbyOrderID(orderID, idAccount) {
     const query = `
     SELECT
     po.orderId,
+    o.orderCode,
     po.requestId,
     po.amount,
     po.signature,
     po.finish_pay AS finishPay
     FROM Payment_order AS po
+    JOIN [Order] AS o ON po.orderId = o.id
     WHERE po.orderId = @orderID;
     `;
     const result = await database
