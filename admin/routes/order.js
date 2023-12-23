@@ -3,7 +3,7 @@ const router = express.Router();
 require("dotenv").config();
 const database = require("../../config");
 const sql = require("mssql");
-
+const { refundOrderPayment } = require("../../utils/momo_payment");
 const mail_util = require("../../utils/mail");
 
 const checkAuth = require("../../middleware/check_auth");
@@ -132,6 +132,7 @@ router.post(
       const [currentOrderStatus, finishPay, paymentMethod, actionDate] =
         await checkOrderExistAndGetCurrentStatusAndFinishPayAdmin(orderID);
       const checkExpired = checkExpiredOrder(actionDate);
+      const orderItem = await getOrderDetailByID(orderID);
       await transaction
         .begin()
         .then(async () => {
@@ -155,18 +156,6 @@ router.post(
                     throw "Don hang chua thanh toan bang momo";
                   }
                   break;
-                case 6:
-                  if (finishPay === false) {
-                    // huy don hang
-                    await updateOrderStatus(orderID, orderStatus, transaction);
-                    await createOrderTracking(
-                      orderID,
-                      transaction,
-                      now,
-                      orderStatus
-                    );
-                  }
-                  break;
                 default:
                   throw "Invalid order status";
               }
@@ -181,8 +170,43 @@ router.post(
                   now,
                   orderStatus
                 );
-              } else {
-                throw "Invalid order status";
+              } else if (orderStatus === 6) {
+                if (checkExpired) {
+                  if (finishPay === false) {
+                    // huy don hang
+                    await updateOrderStatus(orderID, orderStatus, transaction);
+                    await createOrderTracking(
+                      orderID,
+                      transaction,
+                      now,
+                      orderStatus
+                    );
+                  } else {
+                    await updateOrderStatus(orderID, orderStatus, transaction);
+                    await createOrderTracking(
+                      orderID,
+                      transaction,
+                      now,
+                      orderStatus
+                    );
+                    refundOrderPayment(
+                      amount,
+                      transId,
+                      orderIdOrder,
+                      requestId
+                    );
+                    console.log("refundOrderPayment success");
+                    await updateOrderPayment(orderID, transaction);
+                    if (
+                      orderItem.receiverAddresse.receiverEmail !== null ||
+                      orderItem.receiverAddresse.receiverEmail !== ""
+                    ) {
+                      mail_util.sendMessagePaymentRefund(orderItem);
+                    }
+                  }
+                } else {
+                  throw "Chua het han 10 ngay";
+                }
               }
               break;
             case 2:
@@ -231,9 +255,6 @@ router.post(
           response.status(200).json({
             message: "Update order status success",
           });
-          console.log("Send Email to Customer", orderID);
-          const orderItem = await getOrderDetailByID(orderID);
-          console.log("order", orderItem);
           if (orderItem.receiverAddresse.receiverEmail !== null) {
             mail_util.sendMessageVerifyOrder(orderItem);
           }
@@ -255,6 +276,24 @@ router.post(
     }
   }
 );
+
+async function updateOrderPayment(orderID, transaction) {
+  try {
+    const query = `
+        UPDATE Payment_order
+        SET finish_pay = @finishPay
+        WHERE orderId = @orderID;
+    `;
+    await transaction
+      .request()
+      .input("orderID", orderID)
+      .input("finishPay", false)
+      .query(query);
+  } catch (error) {
+    throw "Error in updateOrderPayment";
+  }
+}
+
 async function createOrderTracking(
   orderID,
   transaction,

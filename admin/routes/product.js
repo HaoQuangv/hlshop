@@ -79,7 +79,7 @@ router.post(
             attributes,
             id_product
           );
-
+          console.log(array_attribute);
           await processProductSKU(
             transaction,
             productSKUs,
@@ -395,10 +395,10 @@ async function insertProduct(
 ) {
   try {
     const query = `
-      INSERT INTO Product(name, slogan, description, notes, uses, madeIn, sellQuantity, createdDate, id_Category, id_User, ingredient, objectsOfUse, preserve, instructionsForUse, height, width, length, weight)
+      INSERT INTO Product(name, slogan, description, notes, uses, madeIn, sellQuantity, createdDate, id_Category, id_User, ingredient, objectsOfUse, preserve, instructionsForUse, height, width, length, weight, enable)
       OUTPUT inserted.id AS id_product
       SELECT 
-        @name, @slogan, @description, @notes, @uses, @madeIn, @sellQuantity, @createdDate, Category.id, [User].id, @ingredient, @objectsOfUse, @preserve, @instructionsForUse, @height, @width, @length, @weight
+        @name, @slogan, @description, @notes, @uses, @madeIn, @sellQuantity, @createdDate, Category.id, [User].id, @ingredient, @objectsOfUse, @preserve, @instructionsForUse, @height, @width, @length, @weight, 1
       FROM [User], Category
       WHERE [User].id_account = @idAccount AND Category.id = @idCategory `;
     const result = await transaction
@@ -648,13 +648,11 @@ router.get(
       // Phân trang
       const paginatedResult = filteredResult.slice(offset, offset + limit);
 
-      response
-        .status(200)
-        .json({
-          result: paginatedResult,
-          total: filteredResult.length,
-          totalAll: resultArray.length,
-        });
+      response.status(200).json({
+        result: paginatedResult,
+        total: filteredResult.length,
+        totalAll: resultArray.length,
+      });
     } catch (error) {
       console.error(error);
       response.status(500).json({ errorCode: "Internal Server Error" });

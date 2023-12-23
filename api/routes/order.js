@@ -3,7 +3,10 @@ const axios = require("axios");
 const router = express.Router();
 const db_action = require("../../utils/db_action");
 const { token, getInfoService } = require("../../utils/shipping");
-const { createMomoPayment } = require("../../utils/momo_payment");
+const {
+  createMomoPayment,
+  refundOrderPayment,
+} = require("../../utils/momo_payment");
 const sql = require("mssql");
 const database = require("../../config");
 const mail_util = require("../../utils/mail");
@@ -1013,11 +1016,18 @@ router.post(
       const orderID = request.query.orderID;
       const orderStatus = Number(request.query.orderStatus);
       const now = new Date();
-      const [currentOrderStatus, finishPay] =
-        await checkOrderExistAndGetCurrentStatusAndFinishPay(
-          orderID,
-          request.userData.uuid
-        );
+      const [
+        currentOrderStatus,
+        finishPay,
+        amount,
+        transId,
+        orderIdOrder,
+        requestId,
+      ] = await checkOrderExistAndGetCurrentStatusAndFinishPay(
+        orderID,
+        request.userData.uuid
+      );
+      const orderItem = await getOrderDetailByID(orderID);
       await transaction
         .begin()
         .then(async () => {
@@ -1035,7 +1045,68 @@ router.post(
                       orderStatus
                     );
                   } else {
-                    throw "Don hang da thanh toan";
+                    await updateOrderStatus(orderID, orderStatus, transaction);
+                    await createOrderTracking(
+                      orderID,
+                      transaction,
+                      now,
+                      orderStatus
+                    );
+                    refundOrderPayment(
+                      amount,
+                      transId,
+                      orderIdOrder,
+                      requestId
+                    );
+                    console.log("refundOrderPayment success");
+                    await updateOrderPayment(orderID, transaction);
+                    if (
+                      orderItem.receiverAddresse.receiverEmail !== null ||
+                      orderItem.receiverAddresse.receiverEmail !== ""
+                    ) {
+                      mail_util.sendMessagePaymentRefund(orderItem);
+                    }
+                  }
+                  break;
+                default:
+                  throw "Invalid order status";
+              }
+              break;
+            case 1:
+              switch (orderStatus) {
+                case 5:
+                  if (finishPay === false) {
+                    // huy don hang
+                    await updateOrderStatus(orderID, orderStatus, transaction);
+                    await createOrderTracking(
+                      orderID,
+                      transaction,
+                      now,
+                      orderStatus
+                    );
+                  } else {
+                    await updateOrderStatus(orderID, orderStatus, transaction);
+                    await createOrderTracking(
+                      orderID,
+                      transaction,
+                      now,
+                      orderStatus
+                    );
+                    console.log("refundOrderPayment");
+                    refundOrderPayment(
+                      amount,
+                      transId,
+                      orderIdOrder,
+                      requestId
+                    );
+                    console.log("refundOrderPayment success");
+                    await updateOrderPayment(orderID, transaction);
+                    if (
+                      orderItem.receiverAddresse.receiverEmail !== null ||
+                      orderItem.receiverAddresse.receiverEmail !== ""
+                    ) {
+                      mail_util.sendMessagePaymentRefund(orderItem);
+                    }
                   }
                   break;
                 default:
@@ -1055,17 +1126,39 @@ router.post(
                   );
                   break;
                 case 7:
-                  // tra hang
-                  await updateOrderStatus(orderID, orderStatus, transaction);
-                  await createOrderTracking(
-                    orderID,
-                    transaction,
-                    now,
-                    orderStatus
-                  );
-                  break;
-                default:
-                  throw "Invalid order status";
+                  if (finishPay === false) {
+                    // tra hang
+                    await updateOrderStatus(orderID, orderStatus, transaction);
+                    await createOrderTracking(
+                      orderID,
+                      transaction,
+                      now,
+                      orderStatus
+                    );
+                  } else {
+                    await updateOrderStatus(orderID, orderStatus, transaction);
+                    await createOrderTracking(
+                      orderID,
+                      transaction,
+                      now,
+                      orderStatus
+                    );
+                    console.log("refundOrderPayment");
+                    refundOrderPayment(
+                      amount,
+                      transId,
+                      orderIdOrder,
+                      requestId
+                    );
+                    console.log("refundOrderPayment success");
+                    await updateOrderPayment(orderID, transaction);
+                    if (
+                      orderItem.receiverAddresse.receiverEmail !== null ||
+                      orderItem.receiverAddresse.receiverEmail !== ""
+                    ) {
+                      mail_util.sendMessagePaymentRefund(orderItem);
+                    }
+                  }
               }
               break;
             default:
@@ -1075,10 +1168,10 @@ router.post(
           response.status(200).json({
             message: "Update order status success",
           });
-          console.log("Send Email to Customer", orderID);
-          const orderItem = await getOrderDetailByID(orderID);
-          console.log("order", orderItem);
-          if (orderItem.receiverAddresse.receiverEmail !== null) {
+          if (
+            orderItem.receiverAddresse.receiverEmail !== null ||
+            orderItem.receiverAddresse.receiverEmail !== ""
+          ) {
             mail_util.sendMessageVerifyOrder(orderItem);
           }
         })
@@ -1098,6 +1191,23 @@ router.post(
     }
   }
 );
+
+async function updateOrderPayment(orderID, transaction) {
+  try {
+    const query = `
+        UPDATE Payment_order
+        SET finish_pay = @finishPay
+        WHERE orderId = @orderID;
+    `;
+    await transaction
+      .request()
+      .input("orderID", orderID)
+      .input("finishPay", false)
+      .query(query);
+  } catch (error) {
+    throw "Error in updateOrderPayment";
+  }
+}
 
 async function updateOrderStatus(orderID, orderStatus, transaction) {
   try {
@@ -1125,7 +1235,11 @@ async function checkOrderExistAndGetCurrentStatusAndFinishPay(
     const query = `
     SELECT
     o.orderStatus,
-    po.finish_pay AS finishPay
+    po.finish_pay AS finishPay,
+    po.amount AS amount,
+    po.transId AS transId,
+    po.orderId AS orderIdOrder,
+    po.requestId AS requestId
     FROM [User] AS u
     JOIN [Order] AS o ON u.id = o.idUser
     LEFT JOIN Payment_order AS po ON o.id = po.orderId
@@ -1139,7 +1253,14 @@ async function checkOrderExistAndGetCurrentStatusAndFinishPay(
     if (result.recordset.length === 0) {
       throw "Error in checkOrderExist";
     }
-    return [result.recordset[0].orderStatus, result.recordset[0].finishPay];
+    return [
+      result.recordset[0].orderStatus,
+      result.recordset[0].finishPay,
+      result.recordset[0].amount,
+      result.recordset[0].transId,
+      result.recordset[0].orderIdOrder,
+      result.recordset[0].requestId,
+    ];
   } catch (error) {
     throw error;
   }
