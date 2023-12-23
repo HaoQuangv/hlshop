@@ -39,7 +39,7 @@ async function getProductDetail(idProduct) {
       LEFT JOIN Media AS m ON p.id = m.id_product
       LEFT JOIN ProductAttributeValue AS pav ON ps.idAttributeValue1 = pav.id AND m.productAttributeValueID = pav.id
       LEFT JOIN Category as c ON p.id_Category = c.id
-      WHERE p.id = @idProduct
+      WHERE p.id = @idProduct AND ps.quantity > 0 AND ps.enable = 1 AND p.enable = 1
     `;
 
     const result = await database
@@ -153,7 +153,7 @@ async function getListProduct() {
               FROM Product as p
               JOIN ProductSku as ps ON p.id = ps.idProduct
               JOIN Media as m ON p.id = m.id_product
-              WHERE ps.quantity > 0 AND ps.enable = 1
+              WHERE ps.quantity > 0 AND ps.enable = 1 AND p.enable = 1
               ORDER BY p.sellQuantity DESC
             `;
     const result = await database.request().query(queryProduct);
@@ -628,7 +628,7 @@ async function getListProductSameCategory(idProduct, idCategory) {
       FROM Product as p
       JOIN ProductSku as ps ON p.id = ps.idProduct
       JOIN Media as m ON p.id = m.id_product
-      WHERE p.id_Category = @idCategory
+      WHERE p.id_Category = @idCategory AND p.id != @idProduct AND ps.quantity > 0 AND ps.enable = 1 AND p.enable = 1
       ORDER BY p.sellQuantity DESC
     `;
 
@@ -685,9 +685,6 @@ router.get("/get-list-same-category", async (request, response) => {
       productID,
       productCategoryID
     );
-    const filteredResult1 = resultArray.filter((item) => {
-      return item.productID !== productID;
-    });
     // const filteredResult = filteredResult1.filter((item) => {
     //   const productNameMatch = item.productName
     //     ? item.productName.toLowerCase().includes(search)
@@ -713,12 +710,12 @@ router.get("/get-list-same-category", async (request, response) => {
     //   );
     // });
 
-    // // Phân trang
-    // const paginatedResult = filteredResult.slice(offset, offset + limit);
+    // Phân trang
+    const paginatedResult = resultArray.slice(offset, offset + limit);
 
     response
       .status(200)
-      .json({ result: filteredResult1, total: filteredResult1.length });
+      .json({ result: paginatedResult, total: paginatedResult.length });
   } catch (error) {
     console.error(error);
     response.status(500).json({ errorCode: "Internal Server Error" });
@@ -856,6 +853,7 @@ async function processSkus(productID) {
           linkString: "",
           price: item.price,
           priceBefore: item.priceBefore,
+          quantity: item.quantity,
           attribute: [],
         };
       }

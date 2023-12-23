@@ -113,7 +113,6 @@ router.post(
           message: "Delete success",
         });
       } else {
-        // Cập nhật quantity bằng cách cộng thêm vào giá trị hiện tại
         const updateQuery =
           "UPDATE Cart SET quantity = @quantity, createdDate = @createdDate WHERE id = @idCart";
         await database

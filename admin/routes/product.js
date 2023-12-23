@@ -490,4 +490,426 @@ router.post(
   }
 );
 
+async function getListProduct() {
+  try {
+    const queryProduct = `
+              SELECT
+              p.id AS productID,
+              p.name AS productName,
+              p.description AS productDescription,
+              p.slogan AS productSlogan,
+              p.notes AS productNotes,
+              p.madeIn AS productMadeIn,
+              p.sellQuantity AS sellQuantity,
+              p.createdDate AS createdDate,
+              p.enable AS productEnable,
+              ps.id AS productSKUID,
+              ps.price AS price,
+              ps.priceBefore AS priceBefore,
+              m.id AS mediaID,
+              m.linkString AS linkString,
+              m.title AS title,
+              m.description AS description
+              FROM Product as p
+              JOIN ProductSku as ps ON p.id = ps.idProduct
+              JOIN Media as m ON p.id = m.id_product
+              ORDER BY p.sellQuantity DESC
+            `;
+    const result = await database.request().query(queryProduct);
+
+    const resultMap = {};
+    result.recordset.forEach((item) => {
+      const { productID, productSKUID, mediaID } = item;
+      if (!resultMap[productID]) {
+        resultMap[productID] = {
+          productID: productID,
+          productName: item.productName,
+          productDescription: item.productDescription,
+          productSlogan: item.productSlogan,
+          productNotes: item.productNotes,
+          productMadeIn: item.productMadeIn,
+          sellQuantity: item.sellQuantity,
+          createdDate: item.createdDate,
+          productEnable: item.productEnable,
+          medias: [
+            {
+              mediaID: mediaID,
+              linkString: item.linkString,
+              title: item.title ? item.title : "",
+              description: item.description ? item.description : "",
+            },
+          ],
+          productSKU: [
+            {
+              productSKUID: productSKUID,
+              price: item.price,
+              priceBefore: item.priceBefore,
+            },
+          ],
+        };
+      }
+    });
+
+    const resultArray = Object.values(resultMap);
+    return resultArray;
+  } catch (error) {
+    throw error;
+  }
+}
+
+router.get(
+  "/get-all-product",
+  checkAuth,
+  checkRoleAdmin,
+  async (request, response) => {
+    try {
+      var offset = parseInt(request.query.offset) || 0;
+      var limit = parseInt(request.query.limit) || 10;
+      var search = request.query.search
+        ? request.query.search.toLowerCase()
+        : "";
+      var sortBy = parseInt(request.query.sortBy);
+      var minAmount = parseInt(request.query.minAmount || 0);
+      var maxAmount = parseInt(request.query.maxAmount || 1000000000);
+
+      const resultArray = await getListProduct();
+
+      const filteredResult = resultArray.filter((item) => {
+        const productNameMatch = item.productName
+          ? item.productName.toLowerCase().includes(search)
+          : false;
+        const productDescriptionMatch = item.productDescription
+          ? item.productDescription.toLowerCase().includes(search)
+          : false;
+        const productSloganMatch = item.productSlogan
+          ? item.productSlogan.toLowerCase().includes(search)
+          : false;
+        const productNotesMatch = item.productNotes
+          ? item.productNotes.toLowerCase().includes(search)
+          : false;
+        const productMadeInMatch = item.productMadeIn
+          ? item.productMadeIn.toLowerCase().includes(search)
+          : false;
+        const priceMatch =
+          !isNaN(minAmount) && !isNaN(maxAmount)
+            ? item.productSKU &&
+              item.productSKU.length > 0 &&
+              item.productSKU[0].price >= minAmount &&
+              item.productSKU[0].price <= maxAmount
+            : true;
+        return (
+          (productNameMatch ||
+            productDescriptionMatch ||
+            productSloganMatch ||
+            productNotesMatch ||
+            productMadeInMatch) &&
+          priceMatch
+        );
+      });
+      //sortBy: 0: Giá tăng dần, 1: Giá giảm dần, 2: mới nhất, 3: cũ nhất, 4: phổ biến nhất, 5: bán chạy nhất
+      switch (sortBy) {
+        case 0:
+          filteredResult.sort((a, b) => {
+            return a.productSKU[0].price - b.productSKU[0].price;
+          });
+          break;
+        case 1:
+          filteredResult.sort((a, b) => {
+            return b.productSKU[0].price - a.productSKU[0].price;
+          });
+          break;
+        case 2:
+          filteredResult.sort((a, b) => {
+            return new Date(b.createdDate) - new Date(a.createdDate);
+          });
+          break;
+        case 3:
+          filteredResult.sort((a, b) => {
+            return new Date(a.createdDate) - new Date(b.createdDate);
+          });
+          break;
+
+        case 4:
+          filteredResult.sort((a, b) => {
+            return (
+              b.sellQuantity / b.productSKU[0].price -
+              a.sellQuantity / a.productSKU[0].price
+            );
+          });
+          break;
+        case 5:
+          filteredResult.sort((a, b) => {
+            return b.sellQuantity - a.sellQuantity;
+          });
+          break;
+        default:
+          break;
+      }
+      // Phân trang
+      const paginatedResult = filteredResult.slice(offset, offset + limit);
+
+      response
+        .status(200)
+        .json({
+          result: paginatedResult,
+          total: filteredResult.length,
+          totalAll: resultArray.length,
+        });
+    } catch (error) {
+      console.error(error);
+      response.status(500).json({ errorCode: "Internal Server Error" });
+    }
+  }
+);
+
+router.get(
+  "/get-product-sku-by-product-id",
+  checkAuth,
+  checkRoleAdmin,
+  async (request, response) => {
+    try {
+      const productID = request.query.productID;
+      const skuss = await processSkus(productID);
+      response.status(200).json({
+        productID: productID,
+        productSKU: skuss,
+      });
+    } catch (error) {
+      console.log(error);
+      response.status(500).json({
+        error: "Internal Server Error",
+      });
+    }
+  }
+);
+
+async function processSkus(productID) {
+  try {
+    const query = `
+      SELECT 
+      ps.id AS productSKUID,
+      ps.quantity AS quantity,
+      ps.price AS price,
+      ps.priceBefore AS priceBefore,
+      ps.enable AS SkuEnable,
+      pav.id AS idAttributeValue1,
+      pav.valueName AS locAttributeValueName1,
+      pav2.id AS idAttributeValue2,
+      pav2.valueName AS locAttributeValueName2,
+      pa.name AS locAttributeName,
+      pa.id AS attributeID,
+      pa2.name AS locAttributeName2,
+      pa2.id AS attributeID2,
+      Media.id AS mediaID,
+      Media.linkString AS linkString,
+      Media.productAttributeValueID
+      FROM ProductSku AS ps
+      LEFT JOIN ProductAttributeValue AS pav ON ps.idAttributeValue1 = pav.id
+      LEFT JOIN ProductAttributeValue AS pav2 ON ps.idAttributeValue2 = pav2.id
+      LEFT JOIN ProductAttribute AS pa ON pav.productAttributeID = pa.id
+      LEFT JOIN ProductAttribute AS pa2 ON pav2.productAttributeID = pa2.id
+      JOIN Product ON ps.idProduct = Product.id 
+      LEFT JOIN Media ON Product.id = Media.id_product
+      WHERE idProduct = @productID
+      `;
+    const result = await database
+      .request()
+      .input("productID", productID)
+      .query(query);
+    const resultMap = {};
+    const linkStringMap = {};
+    result.recordset.forEach((item) => {
+      const {
+        productSKUID,
+        mediaID,
+        idAttributeValue1,
+        idAttributeValue2,
+        attributeID,
+        attributeID2,
+        ...rest
+      } = item;
+      if (!resultMap[productSKUID]) {
+        resultMap[productSKUID] = {
+          productSKUID: productSKUID,
+          linkString: "",
+          price: item.price,
+          priceBefore: item.priceBefore,
+          quantity: item.quantity,
+          SkuEnable: item.SkuEnable,
+          attribute: [],
+        };
+      }
+      const linkStringExist =
+        linkStringMap[mediaID] &&
+        linkStringMap[mediaID].linkString === item.linkString;
+      if (!linkStringExist) {
+        if (mediaID) {
+          linkStringMap[item.productAttributeValueID] = {
+            mediaID: mediaID,
+            linkString: item.linkString,
+            productAttributeValueID: item.productAttributeValueID,
+          };
+        }
+      }
+
+      const attribute1Exit = resultMap[productSKUID].attribute.some(
+        (attribute) => attribute.attributeValueID === idAttributeValue1
+      );
+
+      if (!attribute1Exit) {
+        if (idAttributeValue1) {
+          resultMap[productSKUID].attribute.push({
+            localizedAttributeValueID: idAttributeValue1,
+            locAttributeValueName: item.locAttributeValueName1,
+            locAttributeValueDescription: item.locAttributeValueDescription1,
+            attributeValueID: idAttributeValue1,
+            locAttributeName: item.locAttributeName,
+            attributeID: item.attributeID,
+          });
+        }
+      }
+      const attribute2Exit = resultMap[productSKUID].attribute.some(
+        (attribute) =>
+          attribute.attributeValueID === idAttributeValue2 &&
+          attribute.attributeID === item.attributeID2
+      );
+      if (!attribute2Exit) {
+        if (idAttributeValue2) {
+          resultMap[productSKUID].attribute.push({
+            localizedAttributeValueID: idAttributeValue2,
+            locAttributeValueName: item.locAttributeValueName2,
+            locAttributeValueDescription: item.locAttributeValueDescription2,
+            attributeValueID: idAttributeValue2,
+            locAttributeName: item.locAttributeName2,
+            attributeID: item.attributeID2,
+          });
+        }
+      }
+    });
+    for (const productSKUID in resultMap) {
+      const attributes = resultMap[productSKUID].attribute;
+      for (const attribute of attributes) {
+        const { localizedAttributeValueID } = attribute; // Thêm dòng này để đảm bảo localizedAttributeValueID được định nghĩa.
+        const linkStringMapItem = linkStringMap[localizedAttributeValueID];
+        if (
+          linkStringMapItem &&
+          localizedAttributeValueID == linkStringMapItem.productAttributeValueID
+        ) {
+          resultMap[productSKUID].linkString = linkStringMapItem.linkString;
+          break;
+        }
+      }
+    }
+
+    const resultArray = Object.values(resultMap);
+    return resultArray;
+  } catch (error) {
+    console.log(error);
+    throw "Error in processSkus";
+  }
+}
+
+router.post("/enable-product", checkAuth, checkRoleAdmin, async (req, res) => {
+  try {
+    const { productID, enable } = req.body;
+    console.log(productID, enable);
+    if (enable === 0 || enable === 1) {
+      const query = `
+      UPDATE Product
+      SET enable = @enable
+      WHERE id = @productID
+    `;
+      const result = await database
+        .request()
+        .input("productID", productID)
+        .input("enable", enable)
+        .query(query);
+      if (enable === 1) {
+        res.status(200).json({
+          message: "Enable product successfully",
+        });
+      } else {
+        res.status(200).json({
+          message: "Disable product successfully",
+        });
+      }
+    } else {
+      res.status(500).json({
+        message: "Invalid input data",
+      });
+    }
+  } catch (error) {
+    console.log(error);
+    if (error.code === "EREQUEST") {
+      return response.status(500).json({
+        error: "Not Exist Product",
+      });
+    }
+    res.status(500).json({
+      error: "Internal Server Error",
+    });
+  }
+});
+
+router.post("/enable-sku", checkAuth, checkRoleAdmin, async (req, res) => {
+  try {
+    const { productSKUID, enable } = req.body;
+    console.log(productSKUID, enable);
+    if (enable === 0 || enable === 1) {
+      const query = `
+      UPDATE ProductSKU
+      SET enable = @enable
+      WHERE id = @productSKUID
+    `;
+      const result = await database
+        .request()
+        .input("productSKUID", productSKUID)
+        .input("enable", enable)
+        .query(query);
+      if (enable === 1) {
+        res.status(200).json({
+          message: "Enable SKU successfully",
+        });
+      } else {
+        res.status(200).json({
+          message: "Disable SKU successfully",
+        });
+      }
+    } else {
+      res.status(500).json({
+        message: "Invalid input data",
+      });
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      error: "Internal Server Error",
+    });
+  }
+});
+
+router.post("/restock-sku", checkAuth, checkRoleAdmin, async (req, res) => {
+  try {
+    const { productSKUID, totalStock } = req.body;
+    console.log(productSKUID, totalStock);
+    const query = `
+      UPDATE ProductSKU
+      SET quantity = @totalStock
+      WHERE id = @productSKUID
+    `;
+    const result = await database
+      .request()
+      .input("productSKUID", productSKUID)
+      .input("totalStock", totalStock)
+      .query(query);
+    res.status(200).json({
+      message: "Restock SKU successfully",
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      error: "Internal Server Error",
+    });
+  }
+});
 module.exports = router;
