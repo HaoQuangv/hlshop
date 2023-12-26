@@ -563,8 +563,10 @@ router.get(
   checkRoleAdmin,
   async (request, response) => {
     try {
-      var offset = parseInt(request.query.offset) || 0;
-      var limit = parseInt(request.query.limit) || 10;
+      // var offset = parseInt(request.query.offset) || 0;
+      // var limit = parseInt(request.query.limit) || 10;
+      var offset = parseInt(request.query.offset);
+      var limit = parseInt(request.query.limit);
       var search = request.query.search
         ? request.query.search.toLowerCase()
         : "";
@@ -646,12 +648,11 @@ router.get(
           break;
       }
       // Phân trang
-      const paginatedResult = filteredResult.slice(offset, offset + limit);
+      // const paginatedResult = filteredResult.slice(offset, offset + limit);
 
       response.status(200).json({
-        result: paginatedResult,
+        result: filteredResult,
         total: filteredResult.length,
-        totalAll: resultArray.length,
       });
     } catch (error) {
       console.error(error);
