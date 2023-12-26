@@ -635,6 +635,7 @@ async function getListProductSameCategory(idProduct, idCategory) {
     const result = await database
       .request()
       .input("idCategory", idCategory)
+      .input("idProduct", idProduct)
       .query(queryProduct);
 
     const resultMap = {};

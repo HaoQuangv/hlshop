@@ -31,7 +31,7 @@ router.post("/add", checkAuth, checkRole, async (request, response) => {
     const query = `
     SELECT 1
     FROM [User]
-    LEFT JOIN [AddressReceive] ON [User].id = AddressReceive.id_user
+    JOIN [AddressReceive] ON [User].id = AddressReceive.id_user
     WHERE [User].id_account = @idAccount
     `;
 

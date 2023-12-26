@@ -730,7 +730,7 @@ async function processSkus(productID) {
       if (!resultMap[productSKUID]) {
         resultMap[productSKUID] = {
           productSKUID: productSKUID,
-          linkString: "",
+          linkString: item.linkString,
           price: item.price,
           priceBefore: item.priceBefore,
           quantity: item.quantity,
@@ -785,10 +785,11 @@ async function processSkus(productID) {
         }
       }
     });
+
     for (const productSKUID in resultMap) {
       const attributes = resultMap[productSKUID].attribute;
       for (const attribute of attributes) {
-        const { localizedAttributeValueID } = attribute; // Thêm dòng này để đảm bảo localizedAttributeValueID được định nghĩa.
+        const { localizedAttributeValueID } = attribute;
         const linkStringMapItem = linkStringMap[localizedAttributeValueID];
         if (
           linkStringMapItem &&

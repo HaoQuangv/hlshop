@@ -186,11 +186,12 @@ router.post("/verify-otp", async (request, response) => {
           .query(queryAccount);
 
         const queryUser =
-          "INSERT INTO [User] (id_account, createdDate) VALUES(@idAccount, @createDated)";
+          "INSERT INTO [User] (id_account, contactFullName, createdDate) VALUES(@idAccount, @contactFullName, @createDated)";
         const userResult = await database
           .request()
           .input("idAccount", idAccount)
           .input("createDated", result.recordset[0].createdDate)
+          .input("contactFullName", accountResult.recordset[0].userLogin)
           .query(queryUser);
 
         const token = jwt.sign({ uuid: idAccount }, process.env.privateKey, {
@@ -336,7 +337,7 @@ router.post("/signin-email", async (request, response) => {
       });
     } else {
       if (result.recordset[0].password === password) {
-        if (result.recordset[0].role === 0) {
+        if (result.recordset[0].role === 1) {
           if (result.recordset[0].isVerify === 0) {
             response.status(400).json({
               errorCode: "MSG0046",
