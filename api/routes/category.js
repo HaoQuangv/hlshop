@@ -62,7 +62,7 @@ async function getListProductByCategory(idCategory) {
       FROM Product as p
       JOIN ProductSku as ps ON p.id = ps.idProduct
       JOIN Media as m ON p.id = m.id_product
-      WHERE p.id_Category = @idCategory
+      WHERE p.id_Category = @idCategory AND ps.quantity > 0 AND ps.enable = 1 AND p.enable = 1
       ORDER BY p.sellQuantity DESC
     `;
 

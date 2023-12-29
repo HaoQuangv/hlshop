@@ -425,25 +425,39 @@ async function createOtpEmail(otp, createdDate, emailID, transaction) {
 }
 async function createEmail(idAccount, emailAddress, isDefault, transaction) {
   try {
+    const queryUser = "SELECT id FROM [User] WHERE id_account = @idAccount";
+    const userResult = await database
+      .request()
+      .input("idAccount", idAccount)
+      .query(queryUser);
     query = `
-        INSERT INTO Email(emailAddress, isDefault, isVerify, idUser) 
-        OUTPUT inserted.id, inserted.idUser
-        SELECT 
-        @email,
-        @isDefault,
-        0,
-        [User].id
-        FROM [User]
-        WHERE [User].id_account = @idAccount
+          UPDATE Email
+          SET createdDate = @createdDate
+          WHERE idUser = @idUser AND emailAddress = @email;
+
+          IF @@ROWCOUNT = 0
+          BEGIN
+              INSERT INTO Email (idUser, emailAddress, isDefault, isVerify, createdDate)
+              VALUES (@idUser, @email, @isDefault, 0, @createdDate);
+          END;
+
+          SELECT 'Action' = CASE WHEN @@ROWCOUNT > 0 THEN 'UPDATE' ELSE 'INSERT' END,
+                'id' = id,
+                'idUser' = idUser
+          FROM Email
+          WHERE idUser = @idUser AND emailAddress = @email;
         `;
     const result = await transaction
       .request()
       .input("email", emailAddress)
       .input("isDefault", isDefault)
-      .input("idAccount", idAccount)
+      .input("idUser", userResult.recordset[0].id)
+      .input("createdDate", new Date())
       .query(query);
+    console.log(result);
     return [result.recordset[0].idUser, result.recordset[0].id];
   } catch (error) {
+    console.log(error);
     throw "createEmail";
   }
 }

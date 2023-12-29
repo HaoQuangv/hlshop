@@ -39,7 +39,7 @@ router.post("/signup-email", async (request, response) => {
     } else {
       const role = 1;
       const createdDate = new Date();
-      const expired = new Date(createdDate.getTime() + 60000);
+      const expired = new Date(createdDate.getTime() + 32000);
       const isVerify = 0; //Lúc đăng ký chưa xác nhận thì có giá trị 0, sau khi xác nhận thì có giá trị 1
 
       const queryAccount =
@@ -116,7 +116,7 @@ router.post("/signup-phone", async (request, response) => {
     } else {
       const role = 1;
       const createdDate = new Date();
-      const expired = new Date(createdDate.getTime() + 60000);
+      const expired = new Date(createdDate.getTime() + 32000);
       const isVerify = 0; //Lúc đăng ký chưa xác nhận thì có giá trị 0, sau khi xác nhận thì có giá trị 1
 
       const queryAccount =
@@ -176,7 +176,7 @@ router.post("/verify-otp", async (request, response) => {
 
     const today = new Date();
     const expired = today.getTime() - result.recordset[0].createdDate.getTime();
-    if (expired < 60000) {
+    if (expired < 32000) {
       if (result.recordset[0].value === parseInt(otp)) {
         const queryAccount =
           "UPDATE Account SET isVerify  = 1 OUTPUT inserted.userLogin WHERE id = @idAccount";
@@ -239,7 +239,7 @@ router.post("/resend-otp-email", async (request, response) => {
       mail_util.sendOTP(mail, otp);
 
       const createdDate = new Date();
-      const expiredDate = new Date(createdDate.getTime() + 60000);
+      const expiredDate = new Date(createdDate.getTime() + 32000);
       const queryOtp =
         "INSERT INTO Otp(value, createdDate, id_account) OUTPUT inserted.id VALUES (@value, @createdDate, @id_account)";
       const otpResult = await database
@@ -286,7 +286,7 @@ router.post("/resend-otp-phone", async (request, response) => {
       var otp = mail_util.getRandomInt();
 
       const createdDate = new Date();
-      const expiredDate = new Date(createdDate.getTime() + 60000);
+      const expiredDate = new Date(createdDate.getTime() + 32000);
       const queryOtp =
         "INSERT INTO Otp(value, createdDate, id_account) OUTPUT inserted.id  VALUES (@value, @createdDate, @id_account)";
       const otpResult = await database

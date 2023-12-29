@@ -780,6 +780,7 @@ router.get("/payment-success", async (req, res) => {
   console.log("payment-success", req.query);
   try {
     const paymentOrder = await getPaymentOrderbyOrderID(orderId);
+    console.log("paymentOrder", paymentOrder);
 
     if (
       paymentOrder.requestId === requestId &&
